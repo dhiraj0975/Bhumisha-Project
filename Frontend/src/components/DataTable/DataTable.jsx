@@ -13,6 +13,10 @@ export default function DataTable({
   pageSize = 5,
   checkboxSelection = false,
   title = "Data List",
+  getRowHeight,
+  getDetailPanelContent,
+  getDetailPanelHeight,
+  detailPanelExpandedRowIds,
 }) {
   const [searchText, setSearchText] = useState("");
 
@@ -90,6 +94,10 @@ export default function DataTable({
           rowsPerPageOptions={[5, 10, 20]}
           checkboxSelection={checkboxSelection}
           disableSelectionOnClick
+          getRowHeight={getRowHeight}
+          getDetailPanelContent={getDetailPanelContent}
+          getDetailPanelHeight={getDetailPanelHeight}
+          detailPanelExpandedRowIds={detailPanelExpandedRowIds}
           sx={{
             border: "none",
             "& .MuiDataGrid-columnHeaders": {

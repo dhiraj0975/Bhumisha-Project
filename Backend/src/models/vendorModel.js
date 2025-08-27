@@ -17,6 +17,15 @@ const createVendor = (vendorData, bankData, callback) => {
       if (err) return callback(err);
 
       const vendor_id = result.insertId;
+      const safeBank = {
+        pan_number: (bankData && bankData.pan_number) || "",
+        account_holder_name: (bankData && bankData.account_holder_name) || "",
+        bank_name: (bankData && bankData.bank_name) || "",
+        account_number: (bankData && bankData.account_number) || "",
+        ifsc_code: (bankData && bankData.ifsc_code) || "",
+        branch_name: (bankData && bankData.branch_name) || "",
+      };
+
       const bankQuery = `INSERT INTO vendor_bank_details 
         (vendor_id, pan_number, account_holder_name, bank_name, account_number, ifsc_code, branch_name) 
         VALUES (?, ?, ?, ?, ?, ?, ?)`;
@@ -25,17 +34,14 @@ const createVendor = (vendorData, bankData, callback) => {
         bankQuery,
         [
           vendor_id,
-          bankData.pan_number,
-          bankData.account_holder_name,
-          bankData.bank_name,
-          bankData.account_number,
-          bankData.ifsc_code,
-          bankData.branch_name,
+          safeBank.pan_number,
+          safeBank.account_holder_name,
+          safeBank.bank_name,
+          safeBank.account_number,
+          safeBank.ifsc_code,
+          safeBank.branch_name,
         ],
-        (bankErr) => {
-          if (bankErr) return callback(bankErr);
-          callback(null, vendor_id);
-        }
+        callback
       );
     }
   );
@@ -67,6 +73,15 @@ const updateVendor = (vendor_id, vendorData, bankData, callback) => {
     (err) => {
       if (err) return callback(err);
 
+      const safeBank = {
+        pan_number: (bankData && bankData.pan_number) || "",
+        account_holder_name: (bankData && bankData.account_holder_name) || "",
+        bank_name: (bankData && bankData.bank_name) || "",
+        account_number: (bankData && bankData.account_number) || "",
+        ifsc_code: (bankData && bankData.ifsc_code) || "",
+        branch_name: (bankData && bankData.branch_name) || "",
+      };
+
       const bankQuery = `UPDATE vendor_bank_details 
         SET pan_number=?, account_holder_name=?, bank_name=?, account_number=?, ifsc_code=?, branch_name=? 
         WHERE vendor_id=?`;
@@ -74,12 +89,12 @@ const updateVendor = (vendor_id, vendorData, bankData, callback) => {
       db.query(
         bankQuery,
         [
-          bankData.pan_number,
-          bankData.account_holder_name,
-          bankData.bank_name,
-          bankData.account_number,
-          bankData.ifsc_code,
-          bankData.branch_name,
+          safeBank.pan_number,
+          safeBank.account_holder_name,
+          safeBank.bank_name,
+          safeBank.account_number,
+          safeBank.ifsc_code,
+          safeBank.branch_name,
           vendor_id,
         ],
         callback
@@ -100,21 +115,10 @@ const updateVendorStatus = (vendor_id, status, callback) => {
   db.query(query, [status, vendor_id], callback);
 };
 
-// ================= Get Single Vendor By Id (with bank) =================
-const getVendorById = (vendor_id, callback) => {
-  const query = `SELECT v.id, v.firm_name, v.gst_no, v.address, v.contact_number, v.status,
-                 b.pan_number, b.account_holder_name, b.bank_name, b.account_number, b.ifsc_code, b.branch_name
-                 FROM vendors v
-                 LEFT JOIN vendor_bank_details b ON v.id = b.vendor_id
-                 WHERE v.id = ?`;
-  db.query(query, [vendor_id], callback);
-};
-
 module.exports = {
   createVendor,
   getVendors,
   updateVendor,
   deleteVendor,
   updateVendorStatus,
-  getVendorById,
 };

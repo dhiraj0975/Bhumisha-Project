@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSelector } from "react-redux";
 import { motion } from "framer-motion";
 import { Users, ClipboardList } from "lucide-react";
 import VendorRegistration from "./VendorRegistration";
@@ -12,6 +13,14 @@ const tabs = [
 const VendorTabs = () => {
   const [activeTab, setActiveTab] = useState("register");
   const [vendors, setVendors] = useState([]);
+  const { editingVendor } = useSelector((state) => state.vendors);
+
+  // When editing starts, jump to registration tab so the form shows prefilled
+  useEffect(() => {
+    if (editingVendor) {
+      setActiveTab("register");
+    }
+  }, [editingVendor]);
 
   const handleAddVendor = (vendor) => {
     setVendors([...vendors, vendor]);

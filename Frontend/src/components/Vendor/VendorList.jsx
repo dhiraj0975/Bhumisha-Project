@@ -1,128 +1,46 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import DataTable from "../DataTable/DataTable";
-import { fetchVendors, updateVendor, deleteVendor } from "../../features/vendor/vendorSlice"; // Import updateVendor
-import { Pencil, Trash2 } from "lucide-react";
+import { fetchVendors, deleteVendor, setEditingVendor } from "../../features/vendor/vendorSlice";
 import {
   Building2, FileText, MapPin, Phone, CreditCard, Landmark, FileSignature
-} from "lucide-react"; // Import icons
-import { TextField, Button } from "@mui/material"; // Import MUI components
+} from "lucide-react";
 
 export default function VendorList() {
   const dispatch = useDispatch();
   const { vendors, loading, error } = useSelector((state) => state.vendors);
-  const [columns, setColumns] = useState([]);
-  const [editingVendor, setEditingVendor] = useState(null); // State for tracking editing vendor
-  const [form, setForm] = useState({ // State for form values
-    firm_name: "",
-    gst_no: "",
-    address: "",
-    contact_number: "",
-    pan_number: "",
-    account_holder_name: "",
-    bank_name: "",
-    account_number: "",
-    ifsc_code: "",
-    branch_name: "",
-  });
+  const [viewVendor, setViewVendor] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+  // no local edit form state; we render VendorRegistration inline using Redux editingVendor
 
   useEffect(() => {
     dispatch(fetchVendors());
   }, [dispatch]);
 
-  useEffect(() => {
-    if (vendors.length > 0) {
-      const firstVendor = vendors[0];
-      const dynamicColumns = [];
+  // Derived data: filter by search and paginate
+  const filteredVendors = useMemo(() => {
+    if (!search) return vendors;
+    const term = search.toLowerCase();
+    return vendors.filter((v) =>
+      [v.firm_name, v.gst_no, v.address, v.contact_number]
+        .filter(Boolean)
+        .some((val) => String(val).toLowerCase().includes(term))
+    );
+  }, [vendors, search]);
 
-      Object.keys(firstVendor).forEach((key) => {
-        if (key === "status") {
-          dynamicColumns.push({
-            field: key,
-            headerName: key.replace(/_/g, " ").toUpperCase(),
-            width: 120,
-            renderCell: (params) => (
-              <span
-                className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  params.value === "active"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
-                }`}
-              >
-                {params.value ? params.value.toUpperCase() : "N/A"}
-              </span>
-            ),
-          });
-          return;
-        }
+  const totalPages = useMemo(() => {
+    return Math.max(1, Math.ceil(filteredVendors.length / PAGE_SIZE));
+  }, [filteredVendors]);
 
-        if (key === "bank") {
-          // Expand nested bank fields as separate readable columns
-          const bankCols = [
-            { field: "bank_pan_number", headerName: "PAN NUMBER", valueGetter: (params) => params.row.bank?.pan_number || "" },
-            { field: "bank_account_holder_name", headerName: "ACCOUNT HOLDER NAME", valueGetter: (params) => params.row.bank?.account_holder_name || "" },
-            { field: "bank_name", headerName: "BANK NAME", valueGetter: (params) => params.row.bank?.bank_name || "" },
-            { field: "bank_account_number", headerName: "ACCOUNT NUMBER", valueGetter: (params) => params.row.bank?.account_number || "" },
-            { field: "bank_ifsc_code", headerName: "IFSC CODE", valueGetter: (params) => params.row.bank?.ifsc_code || "" },
-            { field: "bank_branch_name", headerName: "BRANCH NAME", valueGetter: (params) => params.row.bank?.branch_name || "" },
-          ];
-          bankCols.forEach((c) => dynamicColumns.push({ ...c, width: 180 }));
-          return;
-        }
-
-        dynamicColumns.push({
-          field: key,
-          headerName: key.replace(/_/g, " ").toUpperCase(),
-          width: 150,
-        });
-      });
-
-      // Action column
-      dynamicColumns.push({
-        field: "actions",
-        headerName: "ACTIONS",
-        width: 150,
-        sortable: false,
-        renderCell: (params) => (
-          <div className="flex gap-2">
-            {/* Edit */}
-            <button
-              className="bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600"
-              onClick={() => handleEdit(params.row)}
-            >
-              <Pencil size={16} />
-            </button>
-            {/* Delete */}
-            <button
-              className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
-              onClick={() => handleDelete(params.row.id)}
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        ),
-      });
-
-      setColumns(dynamicColumns);
-    }
-  }, [vendors]);
+  const currentPageVendors = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredVendors.slice(start, start + PAGE_SIZE);
+  }, [filteredVendors, page]);
 
   const handleEdit = (vendor) => {
-    console.log("Editing vendor:", vendor); // Inspect the vendor object
-    setEditingVendor(vendor);
-    const bank = vendor.bank || {}; // Ensure bank is an object
-    setForm({
-      firm_name: vendor.firm_name || "",
-      gst_no: vendor.gst_no || "",
-      address: vendor.address || "",
-      contact_number: vendor.contact_number || "",
-      pan_number: bank.pan_number ?? "", // Handle null/undefined values
-      account_holder_name: bank.account_holder_name ?? "", // Handle null/undefined values
-      bank_name: bank.bank_name ?? "", // Handle null/undefined values
-      account_number: bank.account_number ?? "", // Handle null/undefined values
-      ifsc_code: bank.ifsc_code ?? "", // Handle null/undefined values
-      branch_name: bank.branch_name ?? "", // Handle null/undefined values
-    });
+    dispatch(setEditingVendor(vendor));
+    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
   };
 
   const handleDelete = (id) => {
@@ -131,226 +49,196 @@ export default function VendorList() {
     }
   };
 
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+  // Editing handled by VendorRegistration component
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    dispatch(updateVendor({
-      id: editingVendor.id,
-      vendor: {
-        ...editingVendor, // Keep other vendor properties
-        firm_name: form.firm_name,
-        gst_no: form.gst_no,
-        address: form.address,
-        contact_number: form.contact_number,
-        bank: {
-          pan_number: form.pan_number,
-          account_holder_name: form.account_holder_name,
-          bank_name: form.bank_name,
-          account_number: form.account_number,
-          ifsc_code: form.ifsc_code,
-          branch_name: form.branch_name,
-        }
-      }
-    }));
-    setEditingVendor(null); // Clear editing state
-  };
+  // Stats
+  const totalVendors = vendors.length;
+  const activeVendors = vendors.filter((v) => (v.status || "").toString().toLowerCase() === "active").length;
+  const inactiveVendors = totalVendors - activeVendors;
 
   return (
     <div className="p-6 bg-white rounded-2xl shadow-md">
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Vendor List</h2>
+      <h2 className="text-2xl font-bold mb-6 text-gray-800">Vendors</h2>
 
       {loading && <p className="text-gray-600">Loading vendors...</p>}
       {error && <p className="text-red-500">Error: {error}</p>}
 
-      {editingVendor ? ( // Conditional rendering: Show form if editingVendor is not null
-        <form
-          onSubmit={handleSubmit}
-          className="bg-gray-50 p-8 rounded-2xl shadow-md space-y-6"
-        >
-          <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">
-            Update Vendor
-          </h2>
-
-          {/* Basic Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block font-medium mb-1 flex items-center gap-2">
-                <Building2 className="text-blue-600" size={18} /> Firm Name
-              </label>
-              <TextField
-                fullWidth
-                type="text"
-                name="firm_name"
-                value={form.firm_name}
-                onChange={handleChange}
-                placeholder="Enter firm name"
-                required
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 flex items-center gap-2">
-                <FileText className="text-blue-600" size={18} /> GST Number
-              </label>
-              <TextField
-                fullWidth
-                type="text"
-                name="gst_no"
-                value={form.gst_no}
-                onChange={handleChange}
-                placeholder="Enter GST number"
-                required
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label className="block font-medium mb-1 flex items-center gap-2">
-                <MapPin className="text-blue-600" size={18} /> Address
-              </label>
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                placeholder="Enter complete address"
-                required
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 flex items-center gap-2">
-                <Phone className="text-blue-600" size={18} /> Contact Number
-              </label>
-              <TextField
-                fullWidth
-                type="text"
-                name="contact_number"
-                value={form.contact_number}
-                onChange={handleChange}
-                placeholder="Enter contact number"
-                required
-              />
-            </div>
+      {/* Stat cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-gradient-to-br from-blue-100 via-blue-200 to-blue-50 rounded-lg shadow p-4 border border-blue-200">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-blue-900">Total Vendors</p>
+            <Building2 size={18} className="text-blue-600" />
           </div>
-
-          {/* Bank Details */}
-          <h3 className="text-xl font-semibold text-gray-700 border-b pb-1">Bank Details</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block font-medium mb-1 flex items-center gap-2">
-                <FileSignature className="text-blue-600" size={18} /> PAN Number
-              </label>
-              <TextField
-                fullWidth
-                type="text"
-                name="pan_number"
-                value={form.pan_number}
-                onChange={handleChange}
-                placeholder="Enter PAN number"
-                required
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 flex items-center gap-2">
-                <CreditCard className="text-blue-600" size={18} /> Account Holder Name
-              </label>
-              <TextField
-                fullWidth
-                type="text"
-                name="account_holder_name"
-                value={form.account_holder_name}
-                onChange={handleChange}
-                placeholder="Enter account holder name"
-                required
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 flex items-center gap-2">
-                <Landmark className="text-blue-600" size={18} /> Bank Name
-              </label>
-              <TextField
-                fullWidth
-                type="text"
-                name="bank_name"
-                value={form.bank_name}
-                onChange={handleChange}
-                placeholder="Enter bank name"
-                required
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 flex items-center gap-2">
-                <CreditCard className="text-blue-600" size={18} /> Account Number
-              </label>
-              <TextField
-                fullWidth
-                type="text"
-                name="account_number"
-                value={form.account_number}
-                onChange={handleChange}
-                placeholder="Enter account number"
-                required
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 flex items-center gap-2">
-                <CreditCard className="text-blue-600" size={18} /> IFSC Code
-              </label>
-              <TextField
-                fullWidth
-                type="text"
-                name="ifsc_code"
-                value={form.ifsc_code}
-                onChange={handleChange}
-                placeholder="Enter IFSC code"
-                required
-              />
-            </div>
-            <div>
-              <label className="block font-medium mb-1 flex items-center gap-2">
-                <Landmark className="text-blue-600" size={18} /> Branch Name
-              </label>
-              <TextField
-                fullWidth
-                type="text"
-                name="branch_name"
-                value={form.branch_name}
-                onChange={handleChange}
-                placeholder="Enter branch name"
-              />
-            </div>
+          <p className="text-2xl font-bold text-blue-900 mt-2">{totalVendors}</p>
+        </div>
+        <div className="bg-gradient-to-br from-green-100 via-green-200 to-green-50 rounded-lg shadow p-4 border border-green-200">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium  text-green-900">Active</p>
+            <span className="w-3 h-3 rounded-full bg-green-500" />
           </div>
-
-          <div className="pt-4">
-            <Button
-              fullWidth
-              variant="contained"
-              color="primary"
-              type="submit"
-            >
-              Update Vendor
-            </Button>
+          <p className="text-2xl font-bold text-green-900 mt-2">{activeVendors}</p>
+        </div>
+        <div className="bg-gradient-to-br from-gray-100 via-gray-200 to-gray-50 rounded-lg shadow p-4 border border-gray-200">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-900">Inactive</p>
+            <span className="w-3 h-3 rounded-full bg-gray-500" />
           </div>
-        </form>
-      ) : ( // Otherwise, show the DataTable
-        !loading && !error && vendors.length > 0 && (
-          <DataTable
-            rows={vendors.map((vendor) => ({
-              id: vendor.id,
-              ...vendor,
-            }))}
-            columns={columns}
-            pageSize={5}
-            checkboxSelection
-            autoHeight
-          />
-        )
-      )}
+          <p className="text-2xl font-bold text-gray-900 mt-2">{inactiveVendors}</p>
+        </div>
+      </div>
 
-      {!loading && !error && vendors.length === 0 && (
-        <p className="text-gray-500 mt-4">No vendors found.</p>
+      {/* Update form is shown in VendorRegistration page/tab */}
+
+      {/* Search */}
+      <div className="flex items-center justify-between mb-4">
+        <input
+          type="text"
+          placeholder="Search by firm name, GST, phone, address..."
+          className="border rounded px-3 py-2 w-full max-w-md"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+        />
+        <div className="flex-1" />
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded shadow overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">S.No</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Firm Name</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">GST No</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Action</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {loading ? (
+              <tr><td colSpan={7} className="text-center py-8">Loading...</td></tr>
+            ) : error ? (
+              <tr><td colSpan={7} className="text-center text-red-500 py-8">{error}</td></tr>
+            ) : currentPageVendors.length === 0 ? (
+              <tr><td colSpan={7} className="text-center text-gray-500 py-8">No vendors found.</td></tr>
+            ) : currentPageVendors.map((v, idx) => (
+              <tr key={v.id}>
+                <td className="px-6 py-4 whitespace-nowrap">{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{v.firm_name}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{v.gst_no}</td>
+                <td className="px-6 py-4 whitespace-nowrap flex items-center gap-2"><Phone size={14} /> {v.contact_number}</td>
+                <td className="px-6 py-4">{v.address}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <span className={`px-2 py-1 rounded text-md font-semibold ${
+                    (v.status || "").toString().toLowerCase() === "active" ? "bg-green-100 text-green-800 rounded-full border" : "bg-gray-200 text-gray-700"
+                  }`}>
+                    {(v.status || "-").toString().toLowerCase() === "active" ? "Active" : (v.status || "inactive")}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">
+                  <div className="flex gap-2 justify-center">
+                    <button className="bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200" onClick={() => setViewVendor(v)}>View</button>
+                    <button className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded hover:bg-yellow-200" onClick={() => handleEdit(v)}>Edit</button>
+                    <button className="bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200" onClick={() => handleDelete(v.id)}>Delete</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex justify-center items-center gap-2 mt-6">
+        <button
+          className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+          disabled={page === 1}
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+        >Prev</button>
+        <span>Page {page} of {totalPages}</span>
+        <button
+          className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+          disabled={page === totalPages}
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+        >Next</button>
+      </div>
+
+      {/* Edit Modal removed; editing handled inline above */}
+
+      {/* View Modal */}
+      {viewVendor && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 min-w-[320px] max-w-2xl w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Vendor Details</h2>
+              <button onClick={() => setViewVendor(null)} className="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+            {(() => {
+              const row = viewVendor;
+              const bank = row.bank || row || {};
+              return (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="rounded-xl border bg-gray-50 p-4">
+                    <h4 className="text-sm font-semibold text-indigo-700 mb-3 flex items-center gap-2">
+                      <Building2 size={16} /> Vendor Information
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-500">Firm Name</p>
+                        <p className="font-medium">{row.firm_name || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">GST No</p>
+                        <p className="font-medium">{row.gst_no || "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Contact</p>
+                        <p className="font-medium flex items-center gap-2"><Phone size={14} /> {row.contact_number || "-"}</p>
+                      </div>
+                      <div className="md:col-span-2">
+                        <p className="text-gray-500">Address</p>
+                        <p className="font-medium flex items-center gap-2"><MapPin size={14} /> {row.address || "-"}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-xl border bg-gray-50 p-4">
+                    <h4 className="text-sm font-semibold text-purple-700 mb-3 flex items-center gap-2">
+                      <CreditCard size={16} /> Bank Details
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-500">PAN Number</p>
+                        <p className="font-medium flex items-center gap-2"><FileSignature size={14} /> {bank.pan_number ?? "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Account Holder</p>
+                        <p className="font-medium">{bank.account_holder_name ?? "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Bank Name</p>
+                        <p className="font-medium flex items-center gap-2"><Landmark size={14} /> {bank.bank_name ?? "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Account Number</p>
+                        <p className="font-medium">{bank.account_number ?? "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">IFSC Code</p>
+                        <p className="font-medium">{bank.ifsc_code ?? "-"}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Branch</p>
+                        <p className="font-medium">{bank.branch_name ?? "-"}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
       )}
     </div>
   );

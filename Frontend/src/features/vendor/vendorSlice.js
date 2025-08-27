@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { toast } from "react-toastify";
 import vendorAPI from "../../axios/vendorsAPI";
 
 // ✅ Thunks
@@ -16,7 +17,8 @@ export const updateVendor = createAsyncThunk(
   "vendor/updateVendor",
   async ({ id, vendor }) => {
     const res = await vendorAPI.update(id, vendor);
-    return { id, data: res.data };
+    // Backend may return only a message; optimistically update using submitted data
+    return { id, data: vendor };
   }
 );
 
@@ -60,6 +62,7 @@ const vendorSlice = createSlice({
       .addCase(fetchVendors.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
+        toast.error(action.error.message || "Failed to load vendors");
       })
 
       // Add
@@ -70,10 +73,12 @@ const vendorSlice = createSlice({
       .addCase(addVendor.fulfilled, (state, action) => {
         state.loading = false;
         state.vendors.push(action.payload);
+        toast.success("Vendor created");
       })
       .addCase(addVendor.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
+        toast.error(action.error.message || "Create failed");
       })
 
       // Update
@@ -96,10 +101,12 @@ const vendorSlice = createSlice({
           };
         }
         state.editingVendor = null;
+        toast.success("Vendor updated");
       })
       .addCase(updateVendor.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
+        toast.error(action.error.message || "Update failed");
       })
 
       // Delete
@@ -110,10 +117,12 @@ const vendorSlice = createSlice({
       .addCase(deleteVendor.fulfilled, (state, action) => {
         state.loading = false;
         state.vendors = state.vendors.filter((v) => v.id !== action.payload);
+        toast.success("Vendor deleted");
       })
       .addCase(deleteVendor.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
+        toast.error(action.error.message || "Delete failed");
       });
   },
 });
