@@ -14,6 +14,8 @@ export default function FarmerRegister({ selectedFarmer, onClose }) {
     village: "",
     contact_number: "",
     khasara_number: "",
+    // bank: "",
+    status: "active",
   });
 
   // ✅ Jab edit mode me ho, form ko pre-fill kar do
@@ -48,6 +50,8 @@ export default function FarmerRegister({ selectedFarmer, onClose }) {
       village: "",
       contact_number: "",
       khasara_number: "",
+    
+      status: "active",
     });
     if (onClose) onClose();
   };
@@ -62,17 +66,33 @@ export default function FarmerRegister({ selectedFarmer, onClose }) {
       </h2>
 
       <div className="grid grid-cols-2 gap-4">
-        {Object.keys(formData).map((field) => (
-          <input
-            key={field}
-            type="text"
-            name={field}
-            value={formData[field]}
-            onChange={handleChange}
-            placeholder={field.replace("_", " ")}
-            className="border p-2 rounded-lg"
-          />
-        ))}
+        {Object.keys(formData).map((field) => {
+          if (field === "status") {
+            return (
+              <select
+                key={field}
+                name={field}
+                value={formData[field]}
+                onChange={handleChange}
+                className="border p-2 rounded-lg"
+              >
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            );
+          }
+          return (
+            <input
+              key={field}
+              type="text"
+              name={field}
+              value={formData[field]}
+              onChange={handleChange}
+              placeholder={field.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+              className="border p-2 rounded-lg"
+            />
+          );
+        })}
       </div>
 
       <button

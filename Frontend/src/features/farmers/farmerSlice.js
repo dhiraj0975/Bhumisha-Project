@@ -77,6 +77,7 @@
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import farmerAPI from "../../axios/farmerAPI";
+import { toast } from "react-toastify";
 
 // ✅ Thunks
 export const fetchFarmers = createAsyncThunk("farmers/fetchFarmers", async () => {
@@ -84,25 +85,52 @@ export const fetchFarmers = createAsyncThunk("farmers/fetchFarmers", async () =>
   return res.data;
 });
 
-export const addFarmer = createAsyncThunk("farmers/addFarmer", async (data) => {
-  const res = await farmerAPI.create(data);
-  return res.data;
+export const addFarmer = createAsyncThunk("farmers/addFarmer", async (data, { rejectWithValue }) => {
+  try {
+    const res = await farmerAPI.create(data);
+    toast.success("Farmer successfully registered! 🎉");
+    return res.data;
+  } catch (error) {
+    toast.error("Failed to register farmer. Please try again.");
+    return rejectWithValue(error.response?.data || error.message);
+  }
 });
 
-export const updateFarmer = createAsyncThunk("farmers/updateFarmer", async ({ id, data }) => {
-  const res = await farmerAPI.update(id, data);
-  return res.data;
+export const updateFarmer = createAsyncThunk("farmers/updateFarmer", async ({ id, data }, { rejectWithValue }) => {
+  try {
+    const res = await farmerAPI.update(id, data);
+    toast.success("Farmer details updated successfully! ✅");
+    return res.data;
+  } catch (error) {
+    toast.error("Failed to update farmer details. Please try again.");
+    return rejectWithValue(error.response?.data || error.message);
+  }
 });
 
-export const deleteFarmer = createAsyncThunk("farmers/deleteFarmer", async (id) => {
-  await farmerAPI.remove(id);
-  return id;
+export const deleteFarmer = createAsyncThunk("farmers/deleteFarmer", async (id, { rejectWithValue }) => {
+  try {
+    await farmerAPI.remove(id);
+    toast.success("Farmer deleted successfully! 🗑️");
+    return id;
+  } catch (error) {
+    toast.error("Failed to delete farmer. Please try again.");
+    return rejectWithValue(error.response?.data || error.message);
+  }
 });
 
-export const updateFarmerStatus = createAsyncThunk("farmers/updateStatus", async ({ id, status }) => {
-  const res = await farmerAPI.updateStatus(id, status);
-  return res.data;
-});
+export const updateFarmerStatus = createAsyncThunk(
+  "farmers/updateFarmerStatus",
+  async ({ id, status }, { rejectWithValue }) => {
+    try {
+      await farmerAPI.updateStatus(id, status);
+      toast.success(`Farmer ${status === 'active' ? 'activated' : 'deactivated'} successfully! ✅`);
+      return { id, status };
+    } catch (error) {
+      toast.error("Failed to update farmer status. Please try again.");
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
 
 // ✅ Slice
 const farmerSlice = createSlice({
@@ -136,9 +164,21 @@ const farmerSlice = createSlice({
       .addCase(deleteFarmer.fulfilled, (state, action) => {
         state.list = state.list.filter((f) => f.id !== action.payload);
       })
+      .addCase(updateFarmerStatus.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(updateFarmerStatus.fulfilled, (state, action) => {
+        state.loading = false;
         const index = state.list.findIndex((f) => f.id === action.payload.id);
-        if (index !== -1) state.list[index] = action.payload;
+        if (index !== -1) {
+          state.list[index].status = action.payload.status;
+        }
+      })
+      .addCase(updateFarmerStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+        toast.error(action.error.message || "Status update failed");
       });
   },
 });

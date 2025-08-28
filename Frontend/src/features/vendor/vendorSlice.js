@@ -9,24 +9,56 @@ export const fetchVendors = createAsyncThunk("vendor/fetchVendors", async () => 
   return res.data;
 });
 
-export const addVendor = createAsyncThunk("vendor/addVendor", async (vendor) => {
-  const res = await vendorAPI.create(vendor);
-  return res.data;
+export const addVendor = createAsyncThunk("vendor/addVendor", async (vendor, { rejectWithValue }) => {
+  try {
+    const res = await vendorAPI.create(vendor);
+    toast.success("Vendor successfully registered! 🎉");
+    return res.data;
+  } catch (error) {
+    toast.error("Failed to register vendor. Please try again.");
+    return rejectWithValue(error.response?.data || error.message);
+  }
 });
 
 export const updateVendor = createAsyncThunk(
   "vendor/updateVendor",
-  async ({ id, vendor }) => {
-    const res = await vendorAPI.update(id, vendor);
-    // Backend may return only a message; optimistically update using submitted data
-    return { id, data: vendor };
+  async ({ id, vendor }, { rejectWithValue }) => {
+    try {
+      const res = await vendorAPI.update(id, vendor);
+      toast.success("Vendor details updated successfully! ✅");
+      // Backend may return only a message; optimistically update using submitted data
+      return { id, data: vendor };
+    } catch (error) {
+      toast.error("Failed to update vendor details. Please try again.");
+      return rejectWithValue(error.response?.data || error.message);
+    }
   }
 );
 
-export const deleteVendor = createAsyncThunk("vendor/deleteVendor", async (id) => {
-  await vendorAPI.remove(id);
-  return id;
+export const deleteVendor = createAsyncThunk("vendor/deleteVendor", async (id, { rejectWithValue }) => {
+  try {
+    await vendorAPI.remove(id);
+    toast.success("Vendor deleted successfully! 🗑️");
+    return id;
+  } catch (error) {
+    toast.error("Failed to delete vendor. Please try again.");
+    return rejectWithValue(error.response?.data || error.message);
+  }
 });
+
+export const updateVendorStatus = createAsyncThunk(
+  "vendor/updateVendorStatus",
+  async ({ id, status }, { rejectWithValue }) => {
+    try {
+      await vendorAPI.updateStatus(id, status);
+      toast.success(`Vendor ${status === 'active' ? 'activated' : 'deactivated'} successfully! ✅`);
+      return { id, status };
+    } catch (error) {
+      toast.error("Failed to update vendor status. Please try again.");
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
 
 // ✅ Slice
 const vendorSlice = createSlice({
@@ -132,6 +164,24 @@ const vendorSlice = createSlice({
         state.loading = false;
         state.error = action.error.message;
         toast.error(action.error.message || "Delete failed");
+      })
+
+      // Update Status
+      .addCase(updateVendorStatus.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateVendorStatus.fulfilled, (state, action) => {
+        state.loading = false;
+        const index = state.vendors.findIndex((v) => v.id === action.payload.id);
+        if (index !== -1) {
+          state.vendors[index].status = action.payload.status;
+        }
+      })
+      .addCase(updateVendorStatus.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message;
+        toast.error(action.error.message || "Status update failed");
       });
   },
 });

@@ -95,13 +95,15 @@ const updateFarmerStatus = (req, res) => {
   const farmer_id = req.params.id;
   const { status } = req.body;
 
-  if (!["active", "inactive"].includes(status)) {
+  // Convert to lowercase and validate
+  const normalizedStatus = status.toLowerCase();
+  if (!["active", "inactive"].includes(normalizedStatus)) {
     return res.status(400).json({ message: "Invalid status value" });
   }
 
-  FarmerModel.updateFarmerStatus(farmer_id, status, (err) => {
+  FarmerModel.updateFarmerStatus(farmer_id, normalizedStatus, (err) => {
     if (err) return res.status(500).json(err);
-    res.json({ message: `Farmer status updated to ${status}` });
+    res.json({ message: `Farmer status updated to ${normalizedStatus}` });
   });
 };
 

@@ -1,6 +1,8 @@
 "use client";
 import React, { useState } from "react";
 import { Routes, Route } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Sidebar from "./components/Layout/Sidebar";
 import Navbar from "./components/Layout/Navbar";
 import Dashboard from "./Pages/Dashboard";
@@ -46,6 +48,20 @@ export default function App() {
           </Routes>
         </main>
       </div>
+
+      {/* Toast Container */}
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </div>
   );
 }

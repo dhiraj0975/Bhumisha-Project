@@ -36,12 +36,12 @@ const VendorRegistration = ({ onAddVendor }) => {
         gst_no: editingVendor.gst_no || "",
         address: editingVendor.address || "",
         contact_number: editingVendor.contact_number || "",
-        pan_number: editingVendor.bank?.pan_number || "",
-        account_holder_name: editingVendor.bank?.account_holder_name || "",
-        bank_name: editingVendor.bank?.bank_name || "",
-        account_number: editingVendor.bank?.account_number || "",
-        ifsc_code: editingVendor.bank?.ifsc_code || "",
-        branch_name: editingVendor.bank?.branch_name || "",
+        pan_number: editingVendor.pan_number || "",
+        account_holder_name: editingVendor.account_holder_name || "",
+        bank_name: editingVendor.bank_name || "",
+        account_number: editingVendor.account_number || "",
+        ifsc_code: editingVendor.ifsc_code || "",
+        branch_name: editingVendor.branch_name || "",
       });
     } else {
       setForm({
