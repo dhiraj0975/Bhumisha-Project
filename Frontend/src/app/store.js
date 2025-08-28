@@ -1,9 +1,12 @@
 import { configureStore } from "@reduxjs/toolkit";
-import vendorReducer from "../features/vendor/vendorSlice"; 
+import vendorReducer from "../features/vendor/vendorSlice";
+import farmerReducer from './../features/farmers/farmerSlice'; // 👈 naya slice import
+
 
 const store = configureStore({
   reducer: {
-    vendors: vendorReducer, // ✅ same key jo aap selector me use karte ho
+    vendors: vendorReducer, // vendor ke liye
+    farmers: farmerReducer, // farmer ke liye
   },
 });
 

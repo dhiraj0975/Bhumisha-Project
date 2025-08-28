@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux"; // Add useDispatch
 import { motion } from "framer-motion";
 import { Users, ClipboardList } from "lucide-react";
 import VendorRegistration from "./VendorRegistration";
 import VendorList from "./VendorList";
+import { clearEditingVendor } from "../../features/vendor/vendorSlice"; // Import clearEditingVendor
 
 const tabs = [
   { id: "register", label: "Vendor Registration", icon: <Users size={20} /> },
@@ -11,6 +12,7 @@ const tabs = [
 ];
 
 const VendorTabs = () => {
+  const dispatch = useDispatch(); // Add dispatch
   const [activeTab, setActiveTab] = useState("register");
   const [vendors, setVendors] = useState([]);
   const { editingVendor } = useSelector((state) => state.vendors);
@@ -22,13 +24,21 @@ const VendorTabs = () => {
     }
   }, [editingVendor]);
 
+  // Handle tab change and clear editingVendor when switching to list
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    if (tabId === "list") {
+      dispatch(clearEditingVendor()); // Clear editingVendor when switching to Vendor List
+    }
+  };
+
   const handleAddVendor = (vendor) => {
     setVendors([...vendors, vendor]);
-    setActiveTab("list"); // auto switch to list
+    setActiveTab("list"); // Auto switch to list
   };
 
   return (
-    <div className=" mx-auto mt-2 bg-gradient-to-br from-gray-50 to-gray-100 shadow-2xl rounded-3xl overflow-hidden border border-gray-200">
+    <div className="mx-auto mt-2 bg-gradient-to-br from-gray-50 to-gray-100 shadow-2xl rounded-3xl overflow-hidden border border-gray-200">
       {/* Tabs */}
       <div className="flex relative bg-white rounded-t-3xl overflow-hidden">
         {tabs.map((tab) => (
@@ -40,7 +50,7 @@ const VendorTabs = () => {
                   ? "text-blue-600"
                   : "text-gray-500 hover:text-gray-700"
               }`}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => handleTabChange(tab.id)} // Use handleTabChange
           >
             {tab.icon}
             {tab.label}

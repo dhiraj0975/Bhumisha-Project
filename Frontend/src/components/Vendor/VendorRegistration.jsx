@@ -10,7 +10,7 @@ import {
   clearEditingVendor,
 } from "../../features/vendor/vendorSlice";
 
-const VendorRegistration = () => {
+const VendorRegistration = ({ onAddVendor }) => {
   const dispatch = useDispatch();
   const { editingVendor } = useSelector((state) => state.vendors);
 
@@ -29,6 +29,7 @@ const VendorRegistration = () => {
 
   // Pre-fill form if editingVendor exists
   useEffect(() => {
+    console.log("Editing Vendor in VendorRegistration:", editingVendor); // Debug log
     if (editingVendor) {
       setForm({
         firm_name: editingVendor.firm_name || "",
@@ -88,6 +89,7 @@ const VendorRegistration = () => {
         })
       );
       dispatch(clearEditingVendor());
+      onAddVendor?.(); // Trigger tab switch to list
     } else {
       await dispatch(
         addVendor({
@@ -106,6 +108,7 @@ const VendorRegistration = () => {
           },
         })
       );
+      onAddVendor?.(); // Trigger tab switch to list
     }
 
     setForm({

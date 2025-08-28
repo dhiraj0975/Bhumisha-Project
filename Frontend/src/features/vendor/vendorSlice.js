@@ -5,6 +5,7 @@ import vendorAPI from "../../axios/vendorsAPI";
 // ✅ Thunks
 export const fetchVendors = createAsyncThunk("vendor/fetchVendors", async () => {
   const res = await vendorAPI.getAll();
+  console.log("Fetched Vendors:", res.data); // Debug log
   return res.data;
 });
 
@@ -38,10 +39,18 @@ const vendorSlice = createSlice({
   },
   reducers: {
     setEditingVendor: (state, action) => {
+      console.log("setEditingVendor Payload:", action.payload); // Debug log
       const payload = JSON.parse(JSON.stringify(action.payload)); // Deep clone
       state.editingVendor = {
         ...payload,
-        bank: payload.bank || {}, // Ensure bank property exists
+        bank: {
+          pan_number: payload.bank?.pan_number || "",
+          account_holder_name: payload.bank?.account_holder_name || "",
+          bank_name: payload.bank?.bank_name || "",
+          account_number: payload.bank?.account_number || "",
+          ifsc_code: payload.bank?.ifsc_code || "",
+          branch_name: payload.bank?.branch_name || "",
+        }, // Ensure all bank fields are initialized
       };
     },
     clearEditingVendor: (state) => {
