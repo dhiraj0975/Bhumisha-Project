@@ -15,6 +15,11 @@ import GoldBasicPage from "../Pages/GoldBasic";
 import Careers from "../Pages/Careers";
 import GoldPremiumPage from "../Pages/GoldPremiumPage";
 import IndicesBasicPage from "../Pages/IndicesBasicPage";
+// import CategoryManager from "../Pages/CategoryManager";
+import ProductPage from "../Pages/ProductPage";
+import Categories from "../components/categories/Categories";
+import Products from "../Pages/products/Products";
+// import CategoryManager from './../Pages/CategoryManager';
 
 export default function AppRoute() {
   return (
@@ -31,6 +36,8 @@ export default function AppRoute() {
       <Route path="/gold-premium" element={< GoldPremiumPage/>} />
       <Route path="/indice-basic" element={< IndicesBasicPage/>} />
       <Route path="/blog" element={<BlogCards />} />
+      <Route path="/category" element={<Categories />} />
+      <Route path="/product" element={<Products />} />
 
     </Routes>
   );

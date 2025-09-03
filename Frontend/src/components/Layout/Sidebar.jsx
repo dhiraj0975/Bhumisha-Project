@@ -14,6 +14,8 @@ import {
 } from "react-icons/fa";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
 
+
+
 export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollapse }) {
   const location = useLocation();
   const [openMenu, setOpenMenu] = useState(null);
@@ -118,6 +120,13 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
         <Link to="/farmer" className={linkClass("/farmer")}>
           <FaUser /> {!collapsed && "Farmer"}
         </Link>
+        <Link to="/category" className={linkClass("/category")}>
+          <FaUser /> {!collapsed && "category"}
+        </Link>
+        <Link to="/product" className={linkClass("/product")}>
+          <FaUser /> {!collapsed && "Product"}
+        </Link>
+        
       </nav>
     </aside>
   );
