@@ -259,8 +259,33 @@ const vendorSlice = createSlice({
       })
       .addCase(addVendor.fulfilled, (state, action) => {
         state.loading = false;
-        const vendorData = action.payload.vendor || action.payload;
-        state.vendors.push(vendorData);
+        const v = action.payload?.vendor || action.payload || {};
+        // Normalize to flat row shape expected by list/grid
+        const normalized = {
+          id: v.id ?? v.vendor_id ?? v._id,
+          firm_name: v.firm_name,
+          gst_no: v.gst_no,
+          address: v.address,
+          contact_number: v.contact_number,
+          status: (v.status || "").toString(),
+          // Flatten possible nested bank object or accept flat fields
+          pan_number: v.bank?.pan_number ?? v.pan_number ?? "",
+          account_holder_name: v.bank?.account_holder_name ?? v.account_holder_name ?? "",
+          bank_name: v.bank?.bank_name ?? v.bank_name ?? "",
+          account_number: v.bank?.account_number ?? v.account_number ?? "",
+          ifsc_code: v.bank?.ifsc_code ?? v.ifsc_code ?? "",
+          branch_name: v.bank?.branch_name ?? v.branch_name ?? "",
+        };
+        // Only push if we have a valid id; otherwise let fetchVendors refresh the list
+        if (normalized.id !== undefined && normalized.id !== null && normalized.id !== "") {
+          // Deduplicate by id if it already exists
+          const existsIndex = state.vendors.findIndex((row) => (row.id ?? row._id ?? row.vendor_id) === normalized.id);
+          if (existsIndex >= 0) {
+            state.vendors[existsIndex] = { ...state.vendors[existsIndex], ...normalized };
+          } else {
+            state.vendors.push(normalized);
+          }
+        }
       })
       .addCase(addVendor.rejected, (state, action) => {
         state.loading = false;

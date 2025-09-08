@@ -1,6 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { toast } from "react-toastify";
-import vendorAPI from "../../axios/vendorsAPI";
+import vendorAPI from "../../axios/vendorsAPI.js";
 
 // ✅ Fetch vendors
 export const fetchVendors = createAsyncThunk("vendor/fetchVendors", async () => {
@@ -10,8 +10,12 @@ export const fetchVendors = createAsyncThunk("vendor/fetchVendors", async () => 
 
 // ✅ Add vendor
 export const addVendor = createAsyncThunk("vendor/addVendor", async (vendor, { rejectWithValue }) => {
+  console.log("this is call the thunk ",vendor);
+  
   try {
     const res = await vendorAPI.create(vendor);
+    console.log("this is the response of the vendor",res);
+    
     toast.success("Vendor successfully registered! 🎉");
     return res.data;
   } catch (error) {

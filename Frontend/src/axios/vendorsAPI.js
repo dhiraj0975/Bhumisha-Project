@@ -6,6 +6,9 @@ const api = axios.create({
   withCredentials: true,
 });
 
+console.log("reached at the API",api);
+
+
 // ✅ Vendor API calls
 const vendorAPI = {
   create: (data) => api.post("/vendors", data),

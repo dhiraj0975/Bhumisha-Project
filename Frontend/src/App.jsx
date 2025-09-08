@@ -6,7 +6,7 @@ import "react-toastify/dist/ReactToastify.css";
 import Sidebar from "./components/Layout/Sidebar";
 import Navbar from "./components/Layout/Navbar";
 import Dashboard from "./Pages/Dashboard";
-import VendorManagement from "./Pages/VendorManagement";
+import VendorManagement from "./Pages/VendorManagement.jsx";
 import FarmerRegistrationPage from "./Pages/FarmerRegistrationPage";
 import ProformaInvoice from "./Pages/ProformaInvoice";
 import Categories from "./components/categories/Categories";

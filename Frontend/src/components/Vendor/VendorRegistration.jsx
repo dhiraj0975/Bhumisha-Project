@@ -499,6 +499,8 @@ const VendorRegistration = ({ onAddVendor }) => {
             },
           })
         );
+        console.log(result);
+        
 
         if (result.meta.requestStatus === "rejected") {
           throw new Error(result.payload?.error || "Failed to add vendor.");
@@ -520,7 +522,7 @@ const VendorRegistration = ({ onAddVendor }) => {
       });
 
       // ✅ Refresh vendor list
-      dispatch(fetchVendors());
+       dispatch(fetchVendors());
 
       // ✅ Switch to vendor list tab
       onAddVendor?.();
