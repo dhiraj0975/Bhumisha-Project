@@ -10,6 +10,7 @@ const categoryRoutes = require("./routes/categories.routes");
 const productRoutes = require("./routes/product.routes");
 
 
+// ===============  Middleware for CORS =================
 const allowedOrigins = [
   "http://localhost:5173",
   "https://frontend.bajravijayveerarmytrainingacademy.in",
