@@ -1,21 +1,20 @@
 import React, { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchProducts, addProduct, updateProduct, deleteProduct } from "../../features/products/productsSlice";
+import {
+  fetchProducts,
+  addProduct,
+  updateProduct,
+  deleteProduct,
+} from "../../features/products/productsSlice";
 import { fetchCategories } from "../../features/Categories/categoiresSlice";
 import { IconButton } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-
-// ✅ Discount calculation logic
-const calculateDiscount = (billRate, size) => {
-  let discount = 0;
-  if (size === "5") discount = billRate * 0.3;   // 30% for 5kg
-  else if (size === "10") discount = billRate * 0.25;
-  else if (size === "25") discount = billRate * 0.5;
-  else discount = 0;
-
-  return discount;
-};
+// ✅ Discounts from Purchase Rate (not Value)
+const getDiscounts = (purchase) => ({
+  discount_30: (purchase * 30) / 100,
+  discount_25: (purchase * 25) / 100,
+});
 
 export default function Products() {
   const dispatch = useDispatch();
@@ -26,16 +25,19 @@ export default function Products() {
     category_id: "",
     product_name: "",
     size: "",
-    bill_rate: "",
-    transport_charge: "",
-    local_transport: "",
-    packaging_cost: "",
-    packing_weight: "",
+    purchase_rate: "",
+     transport_charge: 10,   // ✅ default number
+  local_transport: 5,     // ✅ default number
+  packaging_cost: 1.5,    // ✅ default number
     hsn_code: "",
     value: "",
+    discount_30: 0,
+    discount_25: 0,
     total: "",
     gst: "",
+    gstAmount: 0,
   });
+
   const [editProduct, setEditProduct] = useState(null);
 
   useEffect(() => {
@@ -43,128 +45,334 @@ export default function Products() {
     dispatch(fetchCategories());
   }, [dispatch]);
 
-  // ✅ Auto calculate values when size/bill_rate changes
+  // ✅ Auto Calculation
   useEffect(() => {
-    if (formData.bill_rate && formData.size) {
-      const discount = calculateDiscount(Number(formData.bill_rate), formData.size);
-      const value = Number(formData.bill_rate) - discount;
-      const gstAmount = value * 0.18; // 18% GST
-      const total = value + gstAmount + Number(formData.transport_charge || 0) + Number(formData.local_transport || 0) + Number(formData.packaging_cost || 0);
+    const purchase = Number(formData.purchase_rate) || 0;
+    const transport = Number(formData.transport_charge) || 10;
+    const local = Number(formData.local_transport) || 0.5;
+    const packaging = Number(formData.packaging_cost) || 1.5;
 
-      setFormData((prev) => ({
-        ...prev,
-        value,
-        discount_30: formData.size === "5" ? discount : 0,
-        discount_25: formData.size === "10" ? discount : 0,
-        discount_50: formData.size === "25" ? discount : 0,
-        total,
-        gst: gstAmount,
-      }));
-    }
-  }, [formData.bill_rate, formData.size, formData.transport_charge, formData.local_transport, formData.packaging_cost]);
+    // Value = purchase + transport + local + packaging
+    const value = purchase + transport + local + packaging;
 
+    // Discounts from Purchase Rate
+    const { discount_30, discount_25 } = getDiscounts(purchase);
+
+    // ✅ Total Sales Rate = Value × 1.5
+    const salesRate = value * 1.5;
+
+    // GST
+    const gstPercent = Number(formData.gst) || 0;
+    const gstAmount = (salesRate * gstPercent) / 100;
+
+    // ✅ Final Total = Sales Rate + GST
+    const finalTotal = salesRate + gstAmount;
+
+    setFormData((prev) => ({
+      ...prev,
+      value,
+      discount_30,
+      discount_25,
+      total: finalTotal,
+      gst: gstPercent,
+      gstAmount,
+    }));
+  }, [
+    formData.purchase_rate,
+    formData.transport_charge,
+    formData.local_transport,
+    formData.packaging_cost,
+    formData.gst,
+  ]);
+
+  // ✅ Handle Input Change
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  // ✅ Add Product
   const handleAdd = () => {
     dispatch(addProduct(formData));
     setFormData({});
   };
 
+  // ✅ Update Product
   const handleUpdate = () => {
     dispatch(updateProduct({ id: editProduct.id, data: formData }));
     setEditProduct(null);
     setFormData({});
   };
 
+  // ✅ Delete Product
   const handleDelete = (id) => {
     if (window.confirm("Delete this product?")) {
       dispatch(deleteProduct(id));
     }
   };
 
+  // ✅ Group products by category
+  const groupedProducts = categories.map((cat) => ({
+    ...cat,
+    products: products.filter((p) => p.category_id === cat.id),
+  }));
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold mb-4">Product Manager</h1>
 
       {/* Product Form */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <select name="category_id" value={formData.category_id} onChange={handleChange} className="border p-2 rounded">
-          <option value="">Select Category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
+        {/* Category */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">Category</label>
+          <select
+            name="category_id"
+            value={formData.category_id}
+            onChange={handleChange}
+            className="border p-2 rounded"
+          >
+            <option value="">Select Category</option>
+            {categories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        <input type="text" name="product_name" placeholder="Product Name" value={formData.product_name || ""} onChange={handleChange} className="border p-2 rounded" />
-        <select name="size" value={formData.size} onChange={handleChange} className="border p-2 rounded">
-          <option value="">Select Size</option>
-          <option value="1">1 Kg</option>
-          <option value="5">5 Kg</option>
-          <option value="10">10 Kg</option>
-          <option value="25">25 Kg</option>
-        </select>
+        {/* Product Name */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">Product Name</label>
+          <input
+            type="text"
+            name="product_name"
+            placeholder="Product Name"
+            value={formData.product_name || ""}
+            onChange={handleChange}
+            className="border p-2 rounded"
+          />
+        </div>
 
-        <input type="number" name="bill_rate" placeholder="Bill Rate" value={formData.bill_rate || ""} onChange={handleChange} className="border p-2 rounded" />
-        <input type="number" name="transport_charge" placeholder="Transport Charge" value={formData.transport_charge || ""} onChange={handleChange} className="border p-2 rounded" />
-        <input type="number" name="local_transport" placeholder="Local Transport" value={formData.local_transport || ""} onChange={handleChange} className="border p-2 rounded" />
-        <input type="number" name="packaging_cost" placeholder="Packaging Cost" value={formData.packaging_cost || ""} onChange={handleChange} className="border p-2 rounded" />
-        <input type="number" name="packing_weight" placeholder="Packing Weight" value={formData.packing_weight || ""} onChange={handleChange} className="border p-2 rounded" />
-        <input type="text" name="hsn_code" placeholder="HSN Code" value={formData.hsn_code || ""} onChange={handleChange} className="border p-2 rounded" />
-        <input type="number" name="value" placeholder="Value" value={formData.value || ""} readOnly className="border p-2 rounded bg-gray-100" />
-        <input type="number" name="total" placeholder="Total" value={formData.total || ""} readOnly className="border p-2 rounded bg-gray-100" />
-        <input type="number" name="gst" placeholder="GST" value={formData.gst || ""} readOnly className="border p-2 rounded bg-gray-100" />
+        {/* Size */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">QTY</label>
+          <input
+            type="number"
+            name="size"
+            value={formData.size || ""}
+            onChange={handleChange}
+            className="border p-2 rounded"
+          />
+        </div>
+
+        {/* Purchase Rate */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">Purchase Rate</label>
+          <input
+            type="number"
+            name="purchase_rate"
+            value={formData.purchase_rate || ""}
+            onChange={handleChange}
+            className="border p-2 rounded"
+          />
+        </div>
+
+        {/* Transport */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">Transport</label>
+          <input
+            type="number"
+            name="transport_charge"
+            value={formData.transport_charge || "10"}
+            onChange={handleChange}
+            className="border p-2 rounded"
+          />
+        </div>
+
+        {/* Local Transport */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">Local Transport</label>
+          <input
+            type="number"
+            name="local_transport"
+            value={formData.local_transport || "5"}
+            onChange={handleChange}
+            className="border p-2 rounded"
+          />
+        </div>
+
+        {/* Packaging */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">Packaging Cost</label>
+          <input
+            type="number"
+            name="packaging_cost"
+            value={formData.packaging_cost || "1.5"}
+            onChange={handleChange}
+            className="border p-2 rounded"
+          />
+        </div>
+
+        {/* HSN Code */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">HSN Code</label>
+          <input
+            type="text"
+            name="hsn_code"
+            value={formData.hsn_code || ""}
+            onChange={handleChange}
+            className="border p-2 rounded"
+          />
+        </div>
+
+        {/* GST */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">GST %</label>
+          <input
+            type="number"
+            name="gst"
+            value={formData.gst || ""}
+            onChange={handleChange}
+            className="border p-2 rounded"
+          />
+        </div>
+
+        {/* Value */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">Value</label>
+          <input
+            type="number"
+            name="value"
+            value={formData.value || ""}
+            readOnly
+            className="border p-2 rounded bg-gray-100"
+          />
+        </div>
+
+        {/* Discounts */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">5KG 30% / Margin</label>
+          <input
+            type="number"
+            name="discount_30"
+            value={formData.discount_30 || ""}
+            readOnly
+            className="border p-2 rounded bg-gray-100"
+          />
+        </div>
+
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">10KG 25% / Margin</label>
+          <input
+            type="number"
+            name="discount_25"
+            value={formData.discount_25 || ""}
+            readOnly
+            className="border p-2 rounded bg-gray-100"
+          />
+        </div>
+
+
+
+        {/* Total */}
+        <div className="flex flex-col">
+          <label className="mb-1 text-sm font-medium">Total Sales Rate</label>
+          <input
+            type="number"
+            name="total"
+            value={formData.total || ""}
+            readOnly
+            className="border p-2 rounded bg-gray-100"
+          />
+        </div>
       </div>
 
       {editProduct ? (
-        <button onClick={handleUpdate} className="px-4 py-2 bg-green-600 text-white rounded">Update</button>
+        <button
+          onClick={handleUpdate}
+          className="px-4 py-2 bg-green-600 text-white rounded"
+        >
+          Update
+        </button>
       ) : (
-        <button onClick={handleAdd} className="px-4 py-2 bg-blue-600 text-white rounded">Add Product</button>
+        <button
+          onClick={handleAdd}
+          className="px-4 py-2 bg-blue-600 text-white rounded"
+        >
+          Add Product
+        </button>
       )}
 
-      {/* Product List */}
-      {loading ? (
-        <p>Loading products...</p>
-      ) : (
-        <table className="w-full border mt-6">
-          <thead>
-            <tr className="bg-gray-200">
-              <th className="p-2 border">ID</th>
-              <th className="p-2 border">Category</th>
-              <th className="p-2 border">Name</th>
-              <th className="p-2 border">Size</th>
-              <th className="p-2 border">Bill Rate</th>
-              <th className="p-2 border">Discount</th>
-              <th className="p-2 border">Total</th>
-              <th className="p-2 border">Actions</th>
+   {/* Products Table */}
+{loading ? (
+  <p>Loading...</p>
+) : (
+  <table className="w-full border mt-6 text-sm">
+    <thead>
+      <tr className="bg-gray-200">
+        <th className="p-2 border">Sl/No.</th>
+        <th className="p-2 border">HSN Code</th>
+        <th className="p-2 border">Product Name</th>
+        <th className="p-2 border">Purchase R</th>
+        <th className="p-2 border">Tspt</th>
+        <th className="p-2 border">L-Tspt</th>
+        <th className="p-2 border">Pac</th>
+        <th className="p-2 border">Value</th>
+        <th className="p-2 border">5KG (30%)</th>
+        <th className="p-2 border">10KG (25%)</th>
+        <th className="p-2 border">/KG (50%)</th>
+        <th className="p-2 border">Total</th>
+        <th className="p-2 border">GST %</th>
+        <th className="p-2 border">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {groupedProducts.map((cat) => (
+        <React.Fragment key={cat.id}>
+          <tr className="bg-yellow-200 font-bold">
+            <td colSpan="14" className="p-2 border">
+              {cat.name}
+            </td>
+          </tr>
+          {cat.products.map((p, index) => (
+            <tr key={p.id}>
+              <td className="p-2 border text-center">{index + 1}</td>
+              <td className="p-2 border">{p.hsn_code}</td>
+              <td className="p-2 border">{p.product_name}</td>
+              <td className="p-2 border">{p.purchase_rate}</td>
+              <td className="p-2 border">{p.transport_charge}</td>
+              <td className="p-2 border">{p.local_transport}</td>
+              <td className="p-2 border">{p.packaging_cost}</td>
+              <td className="p-2 border">{p.value}</td>
+              <td className="p-2 border">{p.discount_30}</td>
+              <td className="p-2 border">{p.discount_25}</td>
+              <td className="p-2 border">{p.discount_50}</td>
+              <td className="p-2 border">{p.total}</td>
+              <td className="p-2 border">{p.gst}%</td>
+              <td className="p-2 border flex gap-2">
+                <IconButton
+                  color="primary"
+                  onClick={() => {
+                    setEditProduct(p);
+                    setFormData(p);
+                  }}
+                >
+                  <EditIcon />
+                </IconButton>
+                <IconButton
+                  color="error"
+                  onClick={() => handleDelete(p.id)}
+                >
+                  <DeleteIcon />
+                </IconButton>
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.id}>
-                <td className="p-2 border">{p.id}</td>
-                <td className="p-2 border">{p.category_name}</td>
-                <td className="p-2 border">{p.product_name}</td>
-                <td className="p-2 border">{p.size} Kg</td>
-                <td className="p-2 border">{p.bill_rate}</td>
-                <td className="p-2 border">
-                  {p.discount_30 || p.discount_25 || p.discount_50 || 0}
-                </td>
-                <td className="p-2 border">{p.total}</td>
-                <td className="p-2 border flex gap-2">
-                  <IconButton color="primary" onClick={() => { setEditProduct(p); setFormData(p); }}>
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton color="error" onClick={() => handleDelete(p.id)}>
-                    <DeleteIcon />
-                  </IconButton>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+          ))}
+        </React.Fragment>
+      ))}
+    </tbody>
+  </table>
+)}
+
     </div>
   );
 }

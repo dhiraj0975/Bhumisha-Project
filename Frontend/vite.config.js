@@ -6,6 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   optimizeDeps: {
+     cacheDir: './.vite-cache',
     include: [
       "react",
       "react-dom",

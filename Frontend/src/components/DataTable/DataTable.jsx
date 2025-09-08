@@ -8,19 +8,16 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 
 export default function DataTable({
-  rows,
-  columns,
+  rows = [],
+  columns = [],
   pageSize = 5,
   checkboxSelection = false,
   title = "Data List",
-  getRowHeight,
-  getDetailPanelContent,
-  getDetailPanelHeight,
-  detailPanelExpandedRowIds,
+  getRowId = (row) => row.id, // ✅ id handle
 }) {
   const [searchText, setSearchText] = useState("");
 
-  // ✅ Search function (global search)
+  // ✅ Filter rows by search
   const filteredRows = rows.filter((row) =>
     Object.values(row)
       .join(" ")
@@ -28,7 +25,7 @@ export default function DataTable({
       .includes(searchText.toLowerCase())
   );
 
-  // ✅ Export to Excel
+  // ✅ Export Excel
   const handleExportExcel = () => {
     const worksheet = XLSX.utils.json_to_sheet(filteredRows);
     const workbook = XLSX.utils.book_new();
@@ -36,7 +33,7 @@ export default function DataTable({
     XLSX.writeFile(workbook, `${title}.xlsx`);
   };
 
-  // ✅ Export to PDF
+  // ✅ Export PDF
   const handleExportPDF = () => {
     const doc = new jsPDF();
     doc.text(title, 20, 10);
@@ -53,7 +50,7 @@ export default function DataTable({
 
   return (
     <div className="w-full bg-white shadow-lg rounded-xl p-4">
-      {/* Top Bar with Search + Export */}
+      {/* Top bar */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-3">
         <TextField
           variant="outlined"
@@ -62,7 +59,9 @@ export default function DataTable({
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           InputProps={{
-            startAdornment: <Search fontSize="small" className="mr-2 text-gray-500" />,
+            startAdornment: (
+              <Search fontSize="small" className="mr-2 text-gray-500" />
+            ),
           }}
         />
         <div className="flex gap-2">
@@ -85,7 +84,7 @@ export default function DataTable({
         </div>
       </div>
 
-      {/* DataGrid Table */}
+      {/* DataGrid */}
       <div className="h-[500px]">
         <DataGrid
           rows={filteredRows}
@@ -94,10 +93,7 @@ export default function DataTable({
           rowsPerPageOptions={[5, 10, 20]}
           checkboxSelection={checkboxSelection}
           disableSelectionOnClick
-          getRowHeight={getRowHeight}
-          getDetailPanelContent={getDetailPanelContent}
-          getDetailPanelHeight={getDetailPanelHeight}
-          detailPanelExpandedRowIds={detailPanelExpandedRowIds}
+          getRowId={getRowId} // ✅ Safe id
           sx={{
             border: "none",
             "& .MuiDataGrid-columnHeaders": {

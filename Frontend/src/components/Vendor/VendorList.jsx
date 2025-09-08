@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchVendors, deleteVendor, setEditingVendor, updateVendorStatus } from "../../features/vendor/vendorSlice";
+import {  setEditingVendor } from "../../features/vendor/vendorSlice";
+import {deleteVendor,fetchVendors, updateVendor, updateVendorStatus} from "../../features/vendor/vendorThunks.js"
 import DataTable from "../DataTable/DataTable";
 import { IconButton } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
@@ -81,6 +82,7 @@ export default function VendorList() {
         return pageStart + rowIndex + 1;
       }
     },
+    
     { field: "firm_name", headerName: "Firm Name", flex: 1 },
     { field: "gst_no", headerName: "GST No", flex: 1 },
     { field: "address", headerName: "Address", flex: 1 },
@@ -190,7 +192,14 @@ export default function VendorList() {
 
       {/* DataGrid with Sorting */}
       <div className="bg-white rounded shadow overflow-x-auto mb-6">
-        <DataTable rows={currentPageVendors} columns={columns} />
+       <DataTable
+      rows={vendors}
+      columns={columns}
+      pageSize={10}
+      checkboxSelection={true}
+      title="Vendors List"
+      getRowId={(row) => row.id} // ✅ MUI ko proper id mil jaayegi
+    />
       </div>
 
       {/* Pagination */}
@@ -417,4 +426,4 @@ export default function VendorList() {
       )}
     </div>
   );
-}
+};

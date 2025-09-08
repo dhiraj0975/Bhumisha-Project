@@ -2,8 +2,11 @@ const db = require("../config/db");
 
 // ================= Create Vendor =================
 const createVendor = (vendorData, bankData, callback) => {
+  console.log("Creating vendor with data:", vendorData, bankData); // Debug log
+  
   const vendorQuery =
     "INSERT INTO vendors (firm_name, gst_no, address, contact_number, status) VALUES (?, ?, ?, ?, ?)";
+    
   db.query(
     vendorQuery,
     [
@@ -14,9 +17,14 @@ const createVendor = (vendorData, bankData, callback) => {
       vendorData.status || "active",
     ],
     (err, result) => {
-      if (err) return callback(err);
+      if (err) {
+        console.error("Error creating vendor:", err); // Debug log
+        return callback(err);
+      }
 
       const vendor_id = result.insertId;
+      console.log("Vendor inserted with ID:", vendor_id); // Debug log
+      
       const safeBank = {
         pan_number: (bankData && bankData.pan_number) || "",
         account_holder_name: (bankData && bankData.account_holder_name) || "",
@@ -41,7 +49,16 @@ const createVendor = (vendorData, bankData, callback) => {
           safeBank.ifsc_code,
           safeBank.branch_name,
         ],
-        callback
+        (err) => {
+          if (err) {
+            console.error("Error creating bank details:", err); // Debug log
+            // Even if bank details creation fails, we still return success
+            // as the vendor was created successfully
+            return callback(null, { insertId: vendor_id });
+          }
+          console.log("Bank details created successfully"); // Debug log
+          callback(null, { insertId: vendor_id });
+        }
       );
     }
   );
@@ -115,10 +132,23 @@ const updateVendorStatus = (vendor_id, status, callback) => {
   db.query(query, [status, vendor_id], callback);
 };
 
+
+const getVendorById = (vendor_id, callback) => {
+  const query = `SELECT v.id, v.firm_name, v.gst_no, v.address, v.contact_number, v.status,
+                 b.pan_number, b.account_holder_name, b.bank_name, b.account_number, b.ifsc_code, b.branch_name
+                 FROM vendors v
+                 LEFT JOIN vendor_bank_details b ON v.id = b.vendor_id
+                 WHERE v.id = ?`;
+  db.query(query, [vendor_id], callback);
+};
+
+
+
 module.exports = {
   createVendor,
   getVendors,
   updateVendor,
   deleteVendor,
   updateVendorStatus,
+  getVendorById
 };

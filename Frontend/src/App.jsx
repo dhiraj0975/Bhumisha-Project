@@ -9,8 +9,6 @@ import Dashboard from "./Pages/Dashboard";
 import VendorManagement from "./Pages/VendorManagement";
 import FarmerRegistrationPage from "./Pages/FarmerRegistrationPage";
 import ProformaInvoice from "./Pages/ProformaInvoice";
-import CategoryManager from "./Pages/CategoryManager";
-import ProductPage from "./Pages/ProductPage";
 import Categories from "./components/categories/Categories";
 import Products from "./Pages/products/Products";
 
