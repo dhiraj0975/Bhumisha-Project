@@ -198,7 +198,7 @@ export default function VendorList() {
       pageSize={10}
       checkboxSelection={true}
       title="Vendors List"
-      getRowId={(row) => row.id} // ✅ MUI ko proper id mil jaayegi
+      getRowId={(row) => row?.id ?? row?.vendor_id ?? row?._id}
     />
       </div>
 

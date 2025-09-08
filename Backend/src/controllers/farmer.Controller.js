@@ -15,6 +15,9 @@ const createFarmer = (req, res) => {
     status
   } = req.body;
 
+  console.log("reached at the controller");
+  
+
   FarmerModel.createFarmer(
     {
       name,

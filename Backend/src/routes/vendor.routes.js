@@ -3,6 +3,8 @@ const { createVendor, getVendors, updateVendor, deleteVendor, updateVendorStatus
 
 const vendorRoutes = express.Router();
 
+console.log("router call");
+
 
 vendorRoutes.post("/", createVendor);
 vendorRoutes.get("/", getVendors);
