@@ -4,14 +4,14 @@
     create: (data, cb) => {
       const sql = `
         INSERT INTO products
-        (category_id, product_name, size, bill_rate, transport_charge, local_transport, packaging_cost, packing_weight, hsn_code, value, discount_30, discount_25, discount_50, total, gst)
+        (category_id, product_name, size, purchase_rate, transport_charge, local_transport, packaging_cost, packing_weight, hsn_code, value, discount_30, discount_25, discount_50, total, gst)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       db.query(sql, [
         data.category_id,
         data.product_name,
         data.size,
-        data.bill_rate,
+        data.purchase_rate,
         data.transport_charge,
         data.local_transport,
         data.packaging_cost,
@@ -49,14 +49,14 @@
     update: (id, data, cb) => {
       const sql = `
         UPDATE products SET 
-        category_id=?, product_name=?, size=?, bill_rate=?, transport_charge=?, local_transport=?, packaging_cost=?, packing_weight=?, hsn_code=?, value=?, discount_30=?, discount_25=?, discount_50=?, total=?, gst=?
+        category_id=?, product_name=?, size=?, purchase_rate=?, transport_charge=?, local_transport=?, packaging_cost=?, packing_weight=?, hsn_code=?, value=?, discount_30=?, discount_25=?, discount_50=?, total=?, gst=?
         WHERE id=?
       `;
       db.query(sql, [
         data.category_id,
         data.product_name,
         data.size,
-        data.bill_rate,
+        data.purchase_rate,
         data.transport_charge,
         data.local_transport,
         data.packaging_cost,

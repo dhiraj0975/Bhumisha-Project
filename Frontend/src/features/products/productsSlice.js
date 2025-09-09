@@ -71,7 +71,7 @@ const productSlice = createSlice({
         state.loading = false;
         // Map backend fields to frontend + calculate missing values
         state.list = action.payload.map((p) => {
-          const purchase = Number(p.bill_rate) || 0;
+          const purchase = Number(p.purchase_rate || p.purchase_rate) || 0;
           const transport = Number(p.transport_charge) || 10;
           const local = Number(p.local_transport) || 5;
           const packaging = Number(p.packaging_cost) || 1.5;
@@ -103,7 +103,7 @@ const productSlice = createSlice({
       })
       .addCase(addProduct.fulfilled, (state, action) => {
         const data = action.payload;
-        const purchase = Number(data.bill_rate || data.purchase_rate) || 0;
+        const purchase = Number(data.purchase_rate || data.purchase_rate) || 0;
         const transport = Number(data.transport_charge) || 10;
         const local = Number(data.local_transport) || 5;
         const packaging = Number(data.packaging_cost) || 1.5;
@@ -132,7 +132,7 @@ const productSlice = createSlice({
         const index = state.list.findIndex((p) => p.id === action.payload.id);
         if (index !== -1) {
           const data = action.payload;
-          const purchase = Number(data.bill_rate || data.purchase_rate) || 0;
+          const purchase = Number(data.purchase_rate || data.purchase_rate) || 0;
           const transport = Number(data.transport_charge) || 10;
           const local = Number(data.local_transport) || 5;
           const packaging = Number(data.packaging_cost) || 1.5;

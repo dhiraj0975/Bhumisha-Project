@@ -26,7 +26,7 @@ export default function Products() {
     product_name: "",
     size: "",
     purchase_rate: "",
-     transport_charge: 10,   // ✅ default number
+    transport_charge: 10,   // ✅ default number
   local_transport: 5,     // ✅ default number
   packaging_cost: 1.5,    // ✅ default number
     hsn_code: "",
