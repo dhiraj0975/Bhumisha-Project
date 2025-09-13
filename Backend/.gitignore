@@ -1,0 +1,11 @@
+.env
+node_modules/
+dist/
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+npm-debug.log
+npm-shrinkwrap.json
+package-lock.json
+yarn.lock

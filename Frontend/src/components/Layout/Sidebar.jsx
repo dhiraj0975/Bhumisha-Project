@@ -11,6 +11,10 @@ import {
   FaHome,
   FaUser,
   FaUserFriends,
+   FaUserTie,    // ✅ Vendor
+  FaTractor,    // ✅ Farmer
+  FaTags,       // ✅ Category
+  FaBoxOpen     // ✅ Product
 } from "react-icons/fa";
 import { ChevronDownIcon } from "@heroicons/react/24/solid";
 
@@ -121,10 +125,10 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
           <FaUser /> {!collapsed && "Farmer"}
         </Link>
         <Link to="/category" className={linkClass("/category")}>
-          <FaUser /> {!collapsed && "category"}
+            <FaTags /> {!collapsed && "Categorys"}
         </Link>
         <Link to="/product" className={linkClass("/product")}>
-          <FaUser /> {!collapsed && "Product"}
+          <FaBoxOpen /> {!collapsed && "Products"}
         </Link>
         
       </nav>
