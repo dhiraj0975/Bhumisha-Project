@@ -30,6 +30,7 @@ const createVendor = (req, res) => {
         
         console.log("Vendor created with ID:", result.insertId); // Debug log
         
+        
         // Get the newly created vendor with bank details
         VendorModel.getVendorById(result.insertId, (err, vendor) => {
           if (err) {
