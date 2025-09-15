@@ -47,7 +47,7 @@
         {/* Tabs */}
         <div className="flex relative bg-white rounded-t-3xl overflow-hidden">
           {tabs.map((tab) => (
-            <button
+            <button 
               key={tab.id}
               className={`flex-1 flex items-center justify-center gap-2 py-4 text-base font-semibold transition-all duration-300 relative
                 ${
@@ -70,7 +70,7 @@
         </div>
 
         {/* Content with animation */}
-        <div className="p-3 min-h-[400px] bg-white">
+        <div className="p-3 min-h-[400px] bg-white ">
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 15 }}

@@ -16,11 +16,11 @@ const VendorModel = require("../models/vendorModel");
 
 const createVendor = (req, res) => {
   try {
-    const { firm_name, gst_no, address, contact_number, bank, status } = req.body;
+    const { vendor_name, firm_name, gst_no, address, contact_number, bank, status } = req.body;
     console.log("Received vendor data:", req.body); // Debug log
 
     VendorModel.createVendor(
-      { firm_name, gst_no, address, contact_number, status },
+      {vendor_name, firm_name, gst_no, address, contact_number, status },
       bank,
       (err, result) => {
         if (err) {
@@ -40,6 +40,7 @@ const createVendor = (req, res) => {
               message: "Vendor added successfully!",
               vendor: {
                 id: result.insertId,
+                vendor_name,
                 firm_name,
                 gst_no,
                 address,
@@ -57,6 +58,7 @@ const createVendor = (req, res) => {
               message: "Vendor added successfully!",
               vendor: {
                 id: result.insertId,
+                vendor_name,
                 firm_name,
                 gst_no,
                 address,
@@ -91,11 +93,11 @@ const getVendors = (req, res) => {
 // =============== Update ==================
 const updateVendor = (req, res) => {
   const vendor_id = req.params.id;
-  const { firm_name, gst_no, address, contact_number, bank, status } = req.body;
+  const {vendor_name, firm_name, gst_no, address, contact_number, bank, status } = req.body;
 
   VendorModel.updateVendor(
     vendor_id,
-    { firm_name, gst_no, address, contact_number, status },
+    {vendor_name, firm_name, gst_no, address, contact_number, status },
     bank,
     (err) => {
       if (err) return res.status(500).json(err);
@@ -132,7 +134,7 @@ const updateVendorStatus = (req, res) => {
 };
 
 const getVendorById = (vendor_id, callback) => {
-  const query = `SELECT v.id, v.firm_name, v.gst_no, v.address, v.contact_number, v.status,
+  const query = `SELECT v.id,v.vendor_name, v.firm_name, v.gst_no, v.address, v.contact_number, v.status,
                  b.pan_number, b.account_holder_name, b.bank_name, b.account_number, b.ifsc_code, b.branch_name
                  FROM vendors v
                  LEFT JOIN vendor_bank_details b ON v.id = b.vendor_id

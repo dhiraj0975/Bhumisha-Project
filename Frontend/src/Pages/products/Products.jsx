@@ -383,7 +383,7 @@ return (
       <div className="mt-6 flex justify-end gap-4">
         <button
           onClick={() => setOpenForm(false)}
-          className="px-6 py-2 bg-red-400 hover:bg-gray-500 text-white rounded-lg"
+          className="px-6 curser-pointer py-2 bg-red-400 hover:bg-gray-500 text-white rounded-lg"
         >
           ❌ Cancel
         </button>
@@ -393,7 +393,7 @@ return (
               handleUpdate();
               setOpenForm(false);
             }}
-            className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+            className="px-6 py-2 curser-pointer bg-green-600 hover:bg-green-700 text-white rounded-lg"
           >
             ✅ Update
           </button>
@@ -403,7 +403,7 @@ return (
               handleAdd();
               setOpenForm(false);
             }}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+            className="px-6 py-2 curser-pointer bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
           >
             ➕ Add Product
           </button>

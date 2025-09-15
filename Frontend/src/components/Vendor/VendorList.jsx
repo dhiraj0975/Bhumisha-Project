@@ -29,7 +29,7 @@ export default function VendorList() {
     if (!search) return vendors;
     const term = search.toLowerCase();
     return vendors.filter((v) =>
-      [v.firm_name, v.gst_no, v.address, v.contact_number]
+      [v.vendor_name,v.firm_name, v.gst_no, v.address, v.contact_number]
         .filter(Boolean)
         .some((val) => String(val).toLowerCase().includes(term))
     );
@@ -83,6 +83,7 @@ export default function VendorList() {
       }
     },
     
+    { field: "vendor_name", headerName: "Vendor Name", flex: 1 },
     { field: "firm_name", headerName: "Firm Name", flex: 1 },
     { field: "gst_no", headerName: "GST No", flex: 1 },
     { field: "address", headerName: "Address", flex: 1 },
@@ -346,6 +347,10 @@ export default function VendorList() {
                       <Building2 size={16} /> Vendor Information
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                      <div>
+                        <p className="text-gray-500">Vendor Name</p>
+                        <p className="font-medium">{row.vendor_name || "-"}</p>
+                      </div>
                       <div>
                         <p className="text-gray-500">Firm Name</p>
                         <p className="font-medium">{row.firm_name || "-"}</p>

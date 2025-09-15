@@ -14,6 +14,7 @@ const VendorRegistration = ({ onAddVendor }) => {
   const { editingVendor } = useSelector((state) => state.vendors);
 
   const [form, setForm] = useState({
+    vendor_name: "",
     firm_name: "",
     gst_no: "",
     address: "",
@@ -30,6 +31,7 @@ const VendorRegistration = ({ onAddVendor }) => {
   useEffect(() => {
     if (editingVendor) {
       setForm({
+        vendor_name: editingVendor.vendor_name || "",
         firm_name: editingVendor.firm_name || "",
         gst_no: editingVendor.gst_no || "",
         address: editingVendor.address || "",
@@ -43,7 +45,8 @@ const VendorRegistration = ({ onAddVendor }) => {
       });
     } else {
       setForm({
-        firm_name: "",
+        vendor_name: "",
+         firm_name: "",
         gst_no: "",
         address: "",
         contact_number: "",
@@ -74,6 +77,7 @@ const VendorRegistration = ({ onAddVendor }) => {
           updateVendor({
             id: editingVendor.id,
             vendor: {
+               vendor_name: form.vendor_name,
               firm_name: form.firm_name,
               gst_no: form.gst_no,
               address: form.address,
@@ -100,6 +104,7 @@ const VendorRegistration = ({ onAddVendor }) => {
         // ✅ Add new vendor payload
         result = await dispatch(
           addVendor({
+            vendor_name: form.vendor_name,
             firm_name: form.firm_name,
             gst_no: form.gst_no,
             address: form.address,
@@ -125,6 +130,7 @@ const VendorRegistration = ({ onAddVendor }) => {
 
       // ✅ Reset form after success
       setForm({
+        vendor_name: "",
         firm_name: "",
         gst_no: "",
         address: "",
@@ -159,6 +165,20 @@ const VendorRegistration = ({ onAddVendor }) => {
 
       {/* Basic Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block font-medium mb-1 flex items-center gap-2">
+            <Building2 className="text-blue-600" size={18} /> Vendor Name
+          </label>
+          <input
+            type="text"
+            name="vendor_name"
+            value={form.vendor_name}
+            onChange={handleChange}
+            className="w-full border rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            placeholder="Enter vendor name"
+            required
+          />
+        </div>
         <div>
           <label className="block font-medium mb-1 flex items-center gap-2">
             <Building2 className="text-blue-600" size={18} /> Firm Name
@@ -308,7 +328,7 @@ const VendorRegistration = ({ onAddVendor }) => {
       <div className="pt-4">
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition shadow-md"
+          className="w-full curser-pointer bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition shadow-md"
         >
           {editingVendor ? "Update Vendor" : "Register Vendor"}
         </button>

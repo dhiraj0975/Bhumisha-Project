@@ -263,6 +263,7 @@ const vendorSlice = createSlice({
         // Normalize to flat row shape expected by list/grid
         const normalized = {
           id: v.id ?? v.vendor_id ?? v._id,
+          vendor_name: v.vendor_name,
           firm_name: v.firm_name,
           gst_no: v.gst_no,
           address: v.address,

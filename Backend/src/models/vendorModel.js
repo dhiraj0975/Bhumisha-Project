@@ -5,11 +5,12 @@ const createVendor = (vendorData, bankData, callback) => {
   console.log("Creating vendor with data:", vendorData, bankData); // Debug log
   
   const vendorQuery =
-    "INSERT INTO vendors (firm_name, gst_no, address, contact_number, status) VALUES (?, ?, ?, ?, ?)";
+    "INSERT INTO vendors (vendor_name,firm_name, gst_no, address, contact_number, status) VALUES (?, ?, ?, ?, ?)";
     
   db.query(
     vendorQuery,
     [
+      vendorData.vendor_name,
       vendorData.firm_name,
       vendorData.gst_no,
       vendorData.address,
@@ -66,7 +67,7 @@ const createVendor = (vendorData, bankData, callback) => {
 
 // ================= Get Vendors =================
 const getVendors = (callback) => {
-  const query = `SELECT v.id, v.firm_name, v.gst_no, v.address, v.contact_number, v.status,
+  const query = `SELECT v.id,v.vendor_name ,v.firm_name, v.gst_no, v.address, v.contact_number, v.status,
                  b.pan_number, b.account_holder_name, b.bank_name, b.account_number, b.ifsc_code, b.branch_name
                  FROM vendors v
                  LEFT JOIN vendor_bank_details b ON v.id = b.vendor_id`;
@@ -76,10 +77,11 @@ const getVendors = (callback) => {
 // ================= Update Vendor =================
 const updateVendor = (vendor_id, vendorData, bankData, callback) => {
   const vendorQuery =
-    "UPDATE vendors SET firm_name=?, gst_no=?, address=?, contact_number=?, status=? WHERE id=?";
+    "UPDATE vendors SET vendor_name=?, firm_name=?, gst_no=?, address=?, contact_number=?, status=? WHERE id=?";
   db.query(
     vendorQuery,
     [
+      vendorData.vendor_name,
       vendorData.firm_name,
       vendorData.gst_no,
       vendorData.address,
@@ -134,7 +136,7 @@ const updateVendorStatus = (vendor_id, status, callback) => {
 
 
 const getVendorById = (vendor_id, callback) => {
-  const query = `SELECT v.id, v.firm_name, v.gst_no, v.address, v.contact_number, v.status,
+  const query = `SELECT v.id,v.vendor_name, v.firm_name, v.gst_no, v.address, v.contact_number, v.status,
                  b.pan_number, b.account_holder_name, b.bank_name, b.account_number, b.ifsc_code, b.branch_name
                  FROM vendors v
                  LEFT JOIN vendor_bank_details b ON v.id = b.vendor_id
