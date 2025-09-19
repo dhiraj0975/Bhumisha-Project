@@ -9,20 +9,31 @@ export const fetchVendors = createAsyncThunk("vendor/fetchVendors", async () => 
 });
 
 // ✅ Add vendor
-export const addVendor = createAsyncThunk("vendor/addVendor", async (vendor, { rejectWithValue }) => {
-  console.log("this is call the thunk ",vendor);
-  
-  try {
-    const res = await vendorAPI.create(vendor);
-    console.log("this is the response of the vendor",res);
-    
-    toast.success("Vendor successfully registered! 🎉");
-    return res.data;
-  } catch (error) {
-    toast.error("Failed to register vendor. Please try again.");
-    return rejectWithValue(error.response?.data || error.message);
+export const addVendor = createAsyncThunk(
+  "vendor/addVendor",
+  async (vendor, { rejectWithValue }) => {
+    try {
+      // Backend expects vendor fields only, bank fields separate
+      const vendorPayload = {
+        vendor_name: vendor.vendor_name,
+        firm_name: vendor.firm_name,
+        gst_no: vendor.gst_no,
+        address: vendor.address,
+        contact_number: vendor.contact_number,
+        status: vendor.status || "active",
+      };
+      const bankPayload = vendor.bank || {};
+
+      const res = await vendorAPI.create(vendorPayload, bankPayload); // Backend accepts 2 args
+      toast.success("Vendor successfully registered! 🎉");
+      return res.data;
+    } catch (error) {
+      toast.error("Failed to register vendor. Please try again.");
+      return rejectWithValue(error.response?.data || error.message);
+    }
   }
-});
+);
+
 
 // ✅ Update vendor
 export const updateVendor = createAsyncThunk(

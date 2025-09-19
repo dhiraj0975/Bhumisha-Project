@@ -5,6 +5,7 @@ import {
   addCategory,
   updateCategory,
   deleteCategory,
+   updateCategoryStatus
 } from "../../features/Categories/categoiresSlice";
 import { Edit, Trash2, Plus, Loader2 } from "lucide-react";
 
@@ -12,7 +13,7 @@ export default function Categories() {
   const dispatch = useDispatch();
   const { list: categories, loading } = useSelector((state) => state.categories);
 
-  const [newCategory, setNewCategory] = useState("");
+  const [newCategory, setNewCategory] = useState({ name: "", status: "active" });
   const [search, setSearch] = useState("");
   const [editCategory, setEditCategory] = useState(null);
 
@@ -25,9 +26,9 @@ export default function Categories() {
   }, [dispatch]);
 
   const handleAdd = () => {
-    if (!newCategory.trim()) return;
-    dispatch(addCategory({ name: newCategory }));
-    setNewCategory("");
+    if (!newCategory.name.trim()) return;
+    dispatch(addCategory(newCategory));
+    setNewCategory({ name: "", status: "active" });
   };
 
   const handleUpdate = () => {
@@ -35,7 +36,7 @@ export default function Categories() {
     dispatch(
       updateCategory({
         id: editCategory.id,
-        data: { name: editCategory.name },
+        data: { name: editCategory.name, status: editCategory.status },
       })
     );
     setEditCategory(null);
@@ -96,7 +97,7 @@ export default function Categories() {
                   <tr className="bg-gray-100  text-left">
                     <th className="p-2 text-center border">S/N</th>
                     <th className="p-2 text-center border">Name</th>
-                    {/* <th className="p-2 border">Created At</th> */}
+                    <th className="p-2 text-center border">Status</th>
                     <th className="p-2 text-center border">Actions</th>
                   </tr>
                 </thead>
@@ -107,7 +108,35 @@ export default function Categories() {
                         {(currentPage - 1) * itemsPerPage + idx + 1}
                       </td>
                       <td className="p-2 border">{cat.name}</td>
-                     
+                    <td className="p-2 border text-center">
+  <label className="inline-flex items-center cursor-pointer">
+    <input
+      type="checkbox"
+      checked={cat.status.toLowerCase() === "active"}
+      onChange={() =>
+        dispatch(
+          updateCategoryStatus({
+            id: cat.id,
+            status: cat.status.toLowerCase() === "active" ? "Inactive" : "Active",
+          })
+        )
+      }
+      className="sr-only peer"
+    />
+    <div
+      className="relative w-11 h-6 bg-gray-300 peer-focus:outline-none 
+        peer-focus:ring-2 peer-focus:ring-green-500 rounded-full peer 
+        peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full 
+        peer-checked:after:border-white after:content-[''] after:absolute 
+        after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 
+        after:border after:rounded-full after:h-5 after:w-5 after:transition-all 
+        peer-checked:bg-green-500"
+    ></div>
+  </label>
+</td>
+
+
+
                       <td className="p-2 border">
                         <div className="flex gap-2 text-center justify-center">
                           <button
@@ -162,14 +191,28 @@ export default function Categories() {
           <input
             type="text"
             placeholder="Enter category name"
-            value={editCategory ? editCategory.name : newCategory}
+            value={editCategory ? editCategory.name : newCategory.name}
             onChange={(e) =>
               editCategory
                 ? setEditCategory({ ...editCategory, name: e.target.value })
-                : setNewCategory(e.target.value)
+                : setNewCategory({ ...newCategory, name: e.target.value })
             }
             className="border rounded p-2 w-full mb-3"
           />
+
+          {/* 🔹 Status Dropdown */}
+          <select
+            value={editCategory ? editCategory.status : newCategory.status}
+            onChange={(e) =>
+              editCategory
+                ? setEditCategory({ ...editCategory, status: e.target.value })
+                : setNewCategory({ ...newCategory, status: e.target.value })
+            }
+            className="border rounded p-2 w-full mb-3"
+          >
+            <option value="active">Active ✅</option>
+            <option value="inactive">Inactive ❌</option>
+          </select>
 
           {editCategory ? (
             <div className="flex gap-2">
@@ -178,7 +221,11 @@ export default function Categories() {
                 disabled={loading}
                 className="w-full py-2 bg-green-600 text-white rounded flex active:scale-105 active:bg-green-500 justify-center items-center"
               >
-                {loading ? <Loader2 className="animate-spin active:scale-105 active:bg-green-500 w-5 h-5" /> : "Update Category"}
+                {loading ? (
+                  <Loader2 className="animate-spin active:scale-105 active:bg-green-500 w-5 h-5" />
+                ) : (
+                  "Update Category"
+                )}
               </button>
               <button
                 onClick={() => setEditCategory(null)}
@@ -193,7 +240,11 @@ export default function Categories() {
               disabled={loading}
               className="w-full py-2 bg-blue-600 text-white rounded flex justify-center items-center"
             >
-              {loading ? <Loader2 className="animate-spin active:scale-105 active:bg-green-500 w-5 h-5" /> : "Save Category"}
+              {loading ? (
+                <Loader2 className="animate-spin active:scale-105 active:bg-green-500 w-5 h-5" />
+              ) : (
+                "Save Category"
+              )}
             </button>
           )}
 

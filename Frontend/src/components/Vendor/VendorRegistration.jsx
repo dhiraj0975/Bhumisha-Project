@@ -65,52 +65,24 @@ const VendorRegistration = ({ onAddVendor }) => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    console.log("Submitting form data:", form);
+  e.preventDefault();
+  console.log("Submitting form data:", form);
 
-    try {
-      let result;
+  try {
+    let result;
 
-      if (editingVendor) {
-        // ✅ Update vendor payload
-        result = await dispatch(
-          updateVendor({
-            id: editingVendor.id,
-            vendor: {
-               vendor_name: form.vendor_name,
-              firm_name: form.firm_name,
-              gst_no: form.gst_no,
-              address: form.address,
-              contact_number: form.contact_number,
-              status: editingVendor.status || "active",
-              bank: {
-                pan_number: form.pan_number,
-                account_holder_name: form.account_holder_name,
-                bank_name: form.bank_name,
-                account_number: form.account_number,
-                ifsc_code: form.ifsc_code,
-                branch_name: form.branch_name,
-              },
-            },
-          })
-        );
-
-        if (result.meta.requestStatus === "rejected") {
-          throw new Error(result.payload?.error || "Failed to update vendor.");
-        }
-
-        dispatch(clearEditingVendor());
-      } else {
-        // ✅ Add new vendor payload
-        result = await dispatch(
-          addVendor({
+    if (editingVendor) {
+      result = await dispatch(
+        updateVendor({
+          id: editingVendor.id,
+          vendor: {
             vendor_name: form.vendor_name,
             firm_name: form.firm_name,
             gst_no: form.gst_no,
             address: form.address,
             contact_number: form.contact_number,
-            status: "active",
-            bank: {
+            status: editingVendor.status || "active",
+            bank: { 
               pan_number: form.pan_number,
               account_holder_name: form.account_holder_name,
               bank_name: form.bank_name,
@@ -118,41 +90,58 @@ const VendorRegistration = ({ onAddVendor }) => {
               ifsc_code: form.ifsc_code,
               branch_name: form.branch_name,
             },
-          })
-        );
-        console.log(result);
-        
-
-        if (result.meta.requestStatus === "rejected") {
-          throw new Error(result.payload?.error || "Failed to add vendor.");
-        }
-      }
-
-      // ✅ Reset form after success
-      setForm({
-        vendor_name: "",
-        firm_name: "",
-        gst_no: "",
-        address: "",
-        contact_number: "",
-        pan_number: "",
-        account_holder_name: "",
-        bank_name: "",
-        account_number: "",
-        ifsc_code: "",
-        branch_name: "",
-      });
-
-      // ✅ Refresh vendor list
-       dispatch(fetchVendors());
-
-      // ✅ Switch to vendor list tab
-      onAddVendor?.();
-    } catch (error) {
-      console.error("Submission error:", error);
-      toast.error(error.message || "An error occurred while processing your request.");
+          },
+        })
+      );
+      dispatch(clearEditingVendor());
+    } else {
+      result = await dispatch(
+        addVendor({
+          vendor_name: form.vendor_name,
+          firm_name: form.firm_name,
+          gst_no: form.gst_no,
+          address: form.address,
+          contact_number: form.contact_number,
+          status: "active",
+          bank: {
+            pan_number: form.pan_number,
+            account_holder_name: form.account_holder_name,
+            bank_name: form.bank_name,
+            account_number: form.account_number,
+            ifsc_code: form.ifsc_code,
+            branch_name: form.branch_name,
+          },
+        })
+      );
     }
-  };
+
+    if (result.meta.requestStatus === "rejected") {
+      throw new Error(result.payload?.error || "Submission failed");
+    }
+
+    // Reset form
+    setForm({
+      vendor_name: "",
+      firm_name: "",
+      gst_no: "",
+      address: "",
+      contact_number: "",
+      pan_number: "",
+      account_holder_name: "",
+      bank_name: "",
+      account_number: "",
+      ifsc_code: "",
+      branch_name: "",
+    });
+
+    dispatch(fetchVendors());
+    onAddVendor?.();
+  } catch (error) {
+    console.error("Submission error:", error);
+    toast.error(error.message || "An error occurred");
+  }
+};
+
 
   return (
     <form

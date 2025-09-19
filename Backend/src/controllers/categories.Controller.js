@@ -1,5 +1,6 @@
 const Category = require("../models/categoriesModel");
 
+// Get all categories
 const getCategories = (req, res) => {
   Category.getAll((err, result) => {
     if (err) return res.status(500).send(err);
@@ -7,23 +8,46 @@ const getCategories = (req, res) => {
   });
 };
 
+// Create new category (default Active if not provided)
 const createCategory = (req, res) => {
-  const { name } = req.body;
-  Category.create(name, (err, result) => {
+  const { name, status = "Active" } = req.body;
+
+  Category.create(name, status, (err, result) => {
     if (err) return res.status(500).send(err);
-    res.json({ message: "Category created", id: result.insertId });
+    res.json({ message: "Category created", id: result.insertId, status });
   });
 };
 
+// Update category (name + status both can be updated)
 const updateCategory = (req, res) => {
   const { id } = req.params;
-  const { name } = req.body;
-  Category.update(id, name, (err) => {
+  const { name, status } = req.body;
+
+  // if status is missing, keep it Active by default
+  const newStatus = status || "Active";
+
+  Category.update(id, name, newStatus, (err) => {
     if (err) return res.status(500).send(err);
-    res.json({ message: "Category updated" });
+    res.json({ message: "Category updated", id, status: newStatus });
   });
 };
 
+// ✅ Update only status (toggle Active/Inactive)
+const updateCategoryStatus = (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  if (!status) {
+    return res.status(400).json({ message: "Status is required (Active/Inactive)" });
+  }
+
+  Category.updateStatus(id, status, (err) => {
+    if (err) return res.status(500).send(err);
+    res.json({ message: "Category status updated", id, status });
+  });
+};
+
+// Delete category
 const deleteCategory = (req, res) => {
   const { id } = req.params;
   Category.delete(id, (err) => {
@@ -32,4 +56,10 @@ const deleteCategory = (req, res) => {
   });
 };
 
-module.exports = { getCategories, createCategory, updateCategory, deleteCategory };
+module.exports = { 
+  getCategories, 
+  createCategory, 
+  updateCategory, 
+  updateCategoryStatus, // 🔥 new method
+  deleteCategory 
+};

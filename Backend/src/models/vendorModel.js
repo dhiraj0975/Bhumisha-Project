@@ -1,12 +1,78 @@
 const db = require("../config/db");
 
 // ================= Create Vendor =================
-const createVendor = (vendorData, bankData, callback) => {
-  console.log("Creating vendor with data:", vendorData, bankData); // Debug log
+// const createVendor = (vendorData, bankData, callback) => {
+//   console.log("Creating vendor with data:", vendorData, bankData); // Debug log
   
-  const vendorQuery =
-    "INSERT INTO vendors (vendor_name,firm_name, gst_no, address, contact_number, status) VALUES (?, ?, ?, ?, ?)";
+//   const vendorQuery =
+//     "INSERT INTO vendors (vendor_name,firm_name, gst_no, address, contact_number, status) VALUES (?, ?,?, ?, ?, ?)";
     
+//   db.query(
+//     vendorQuery,
+//     [
+//       vendorData.vendor_name,
+//       vendorData.firm_name,
+//       vendorData.gst_no,
+//       vendorData.address,
+//       vendorData.contact_number,
+//       vendorData.status || "active",
+//     ],
+//     (err, result) => {
+//       if (err) {
+//         console.error("Error creating vendor:", err); // Debug log
+//         return callback(err);
+//       }
+
+//       const vendor_id = result.insertId;
+//       console.log("Vendor inserted with ID:", vendor_id); // Debug log
+      
+//       const safeBank = {
+//         pan_number: (bankData && bankData.pan_number) || "",
+//         account_holder_name: (bankData && bankData.account_holder_name) || "",
+//         bank_name: (bankData && bankData.bank_name) || "",
+//         account_number: (bankData && bankData.account_number) || "",
+//         ifsc_code: (bankData && bankData.ifsc_code) || "",
+//         branch_name: (bankData && bankData.branch_name) || "",
+//       };
+
+//       const bankQuery = `INSERT INTO vendor_bank_details 
+//         (vendor_id, pan_number, account_holder_name, bank_name, account_number, ifsc_code, branch_name) 
+//         VALUES (?, ?, ?, ?, ?, ?, ?)`;
+
+//       db.query(
+//         bankQuery,
+//         [
+//           vendor_id,
+//           safeBank.pan_number,
+//           safeBank.account_holder_name,
+//           safeBank.bank_name,
+//           safeBank.account_number,
+//           safeBank.ifsc_code,
+//           safeBank.branch_name,
+//         ],
+//         (err) => {
+//           if (err) {
+//             console.error("Error creating bank details:", err); // Debug log
+//             // Even if bank details creation fails, we still return success
+//             // as the vendor was created successfully
+//             return callback(null, { insertId: vendor_id });
+//           }
+//           console.log("Bank details created successfully"); // Debug log
+//           callback(null, { insertId: vendor_id });
+//         }
+//       );
+//     }
+//   );
+// };
+
+
+const createVendor = (vendorData, bankData, callback) => {
+  console.log("Creating vendor with data:", vendorData, bankData);
+
+  // ✅ 6 placeholders, 6 values
+  const vendorQuery =
+    "INSERT INTO vendors (vendor_name, firm_name, gst_no, address, contact_number, status) VALUES (?, ?, ?, ?, ?, ?)";
+
   db.query(
     vendorQuery,
     [
@@ -19,25 +85,27 @@ const createVendor = (vendorData, bankData, callback) => {
     ],
     (err, result) => {
       if (err) {
-        console.error("Error creating vendor:", err); // Debug log
+        console.error("Error creating vendor:", err);
         return callback(err);
       }
 
       const vendor_id = result.insertId;
-      console.log("Vendor inserted with ID:", vendor_id); // Debug log
-      
+      console.log("Vendor inserted with ID:", vendor_id);
+
       const safeBank = {
-        pan_number: (bankData && bankData.pan_number) || "",
-        account_holder_name: (bankData && bankData.account_holder_name) || "",
-        bank_name: (bankData && bankData.bank_name) || "",
-        account_number: (bankData && bankData.account_number) || "",
-        ifsc_code: (bankData && bankData.ifsc_code) || "",
-        branch_name: (bankData && bankData.branch_name) || "",
+        pan_number: bankData?.pan_number || "",
+        account_holder_name: bankData?.account_holder_name || "",
+        bank_name: bankData?.bank_name || "",
+        account_number: bankData?.account_number || "",
+        ifsc_code: bankData?.ifsc_code || "",
+        branch_name: bankData?.branch_name || "",
       };
 
-      const bankQuery = `INSERT INTO vendor_bank_details 
-        (vendor_id, pan_number, account_holder_name, bank_name, account_number, ifsc_code, branch_name) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)`;
+      const bankQuery = `
+        INSERT INTO vendor_bank_details 
+        (vendor_id, pan_number, account_holder_name, bank_name, account_number, ifsc_code, branch_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `;
 
       db.query(
         bankQuery,
@@ -52,18 +120,17 @@ const createVendor = (vendorData, bankData, callback) => {
         ],
         (err) => {
           if (err) {
-            console.error("Error creating bank details:", err); // Debug log
-            // Even if bank details creation fails, we still return success
-            // as the vendor was created successfully
+            console.error("Error creating bank details:", err);
             return callback(null, { insertId: vendor_id });
           }
-          console.log("Bank details created successfully"); // Debug log
+          console.log("Bank details created successfully");
           callback(null, { insertId: vendor_id });
         }
       );
     }
   );
 };
+
 
 // ================= Get Vendors =================
 const getVendors = (callback) => {

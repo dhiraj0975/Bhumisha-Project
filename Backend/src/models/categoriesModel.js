@@ -1,25 +1,35 @@
-    const db = require("../config/db");
+const db = require("../config/db");
 
-    const Category = {
-    getAll: (callback) => {
-        const sql = "SELECT * FROM categories";
-        db.query(sql, callback);
-    },
+const Category = {
+  // Get all categories
+  getAll: (callback) => {
+    const sql = "SELECT * FROM categories";
+    db.query(sql, callback);
+  },
 
-    create: (name, callback) => {
-        const sql = "INSERT INTO categories (name) VALUES (?)";
-        db.query(sql, [name], callback);
-    },
+  // Create new category (default Active agar status nahi diya)
+  create: (name, status = "Active", callback) => {
+    const sql = "INSERT INTO categories (name, status) VALUES (?, ?)";
+    db.query(sql, [name, status], callback);
+  },
 
-    update: (id, name, callback) => {
-        const sql = "UPDATE categories SET name = ? WHERE id = ?";
-        db.query(sql, [name, id], callback);
-    },
+  // Update both name & status
+  update: (id, name, status, callback) => {
+    const sql = "UPDATE categories SET name = ?, status = ? WHERE id = ?";
+    db.query(sql, [name, status, id], callback);
+  },
 
-    delete: (id, callback) => {
-        const sql = "DELETE FROM categories WHERE id = ?";
-        db.query(sql, [id], callback);
-    }
-    };
+  // Delete category
+  delete: (id, callback) => {
+    const sql = "DELETE FROM categories WHERE id = ?";
+    db.query(sql, [id], callback);
+  },
 
-    module.exports = Category;
+  // ✅ Update only status (Active/Inactive toggle)
+  updateStatus: (id, status, callback) => {
+    const sql = "UPDATE categories SET status = ? WHERE id = ?";
+    db.query(sql, [status, id], callback);
+  }
+};
+
+module.exports = Category;

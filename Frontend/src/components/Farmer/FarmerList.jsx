@@ -80,21 +80,21 @@ export default function FarmerList({ onEdit }) {
         </div>
       )
     },
-    {
-      field: "bank",
-      headerName: "Bank",
-      sortable: false,
-      width: 80,
-      renderCell: (params) => (
-        <IconButton 
-          color="info" 
-          onClick={() => setBankDetailsFarmer(params.row)}
-          title="View Bank Details"
-        >
-          <AccountBalanceIcon />
-        </IconButton>
-      ),
-    },
+    // {
+    //   field: "bank",
+    //   headerName: "Bank",
+    //   sortable: false,
+    //   width: 80,
+    //   renderCell: (params) => (
+    //     <IconButton 
+    //       color="info" 
+    //       onClick={() => setBankDetailsFarmer(params.row)}
+    //       title="View Bank Details"
+    //     >
+    //       <AccountBalanceIcon />
+    //     </IconButton>
+    //   ),
+    // },
     {
       field: "actions",
       headerName: "Actions",

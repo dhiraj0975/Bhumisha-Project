@@ -1,12 +1,5 @@
 import React from "react";
 
-/**
- * Proforma Invoice – React + Tailwind (Print Only Invoice)
- * - Matches your PDF exactly
- * - Always prints only the proforma (hides navbar/sidebar)
- * - Ready to use in your app
- */
-
 const data = {
   company: {
     name: "MAA RENUKA FOODS PVT LTD",
@@ -55,16 +48,6 @@ const data = {
   ],
   otherCharges: [{ label: "LOCAL TRANSPORT", amount: 800, tax: 0 }],
   roundOff: 0.25,
-  taxSummary: [
-    { hsn: "1001", taxable: 7000, cgstRate: 0, cgstAmt: 0, sgstRate: 0, sgstAmt: 0 },
-    { hsn: "1006", taxable: 5500, cgstRate: 0, cgstAmt: 0, sgstRate: 0, sgstAmt: 0 },
-    { hsn: "-", taxable: 4000, cgstRate: 0, cgstAmt: 0, sgstRate: 0, sgstAmt: 0 },
-    { hsn: "0713", taxable: 68500, cgstRate: 0, cgstAmt: 0, sgstRate: 0, sgstAmt: 0 },
-    { hsn: "1701", taxable: 1625, cgstRate: 2.5, cgstAmt: 40.63, sgstRate: 2.5, sgstAmt: 40.63 },
-    { hsn: "0909", taxable: 2500, cgstRate: 2.5, cgstAmt: 62.5, sgstRate: 2.5, sgstAmt: 62.5 },
-    { hsn: "-", taxable: 25800, cgstRate: 2.5, cgstAmt: 645, sgstRate: 2.5, sgstAmt: 645 },
-    { hsn: "0910", taxable: 2200, cgstRate: 2.5, cgstAmt: 55, sgstRate: 2.5, sgstAmt: 55 },
-  ],
   totals: {
     totalTax: 1606.25,
     grandTotal: 119531,
@@ -189,6 +172,21 @@ export default function ProformaInvoice() {
                   </Cell>
                 </tr>
               ))}
+
+              {/* --- TOTALS ROW --- */}
+              <tr className="font-semibold bg-gray-100">
+                <Cell colSpan={6} className="text-right">Total Tax</Cell>
+                <Cell className="text-right">{formatINR(data.totals.totalTax).replace("₹", "")}</Cell>
+              </tr>
+              <tr className="font-semibold bg-gray-100">
+                <Cell colSpan={6} className="text-right">Grand Total</Cell>
+                <Cell className="text-right">{formatINR(data.totals.grandTotal).replace("₹", "")}</Cell>
+              </tr>
+              <tr>
+                <Cell colSpan={7} className="text-right italic">
+                  In Words: {data.totals.inWords}
+                </Cell>
+              </tr>
             </tbody>
           </table>
         </div>
