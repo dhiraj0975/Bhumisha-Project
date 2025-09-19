@@ -18,6 +18,7 @@ const createCategory = (req, res) => {
   });
 };
 
+
 // Update category (name + status both can be updated)
 const updateCategory = (req, res) => {
   const { id } = req.params;
