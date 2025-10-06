@@ -10,6 +10,7 @@ const store = configureStore({
     farmers: farmerReducer,
     categories: categoryReducer,
     products: productReducer, // ✅ Add products
+   
   },
 });
 

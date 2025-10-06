@@ -298,21 +298,26 @@ const vendorSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(updateVendor.fulfilled, (state, action) => {
-        state.loading = false;
-        const index = state.vendors.findIndex((v) => v.id === action.payload.id);
-        if (index !== -1) {
-          state.vendors[index] = {
-            ...state.vendors[index],
-            ...action.payload.data,
-            bank: {
-              ...state.vendors[index].bank,
-              ...action.payload.data.bank,
-            },
-          };
-        }
-        state.editingVendor = null;
-      })
+.addCase(updateVendor.fulfilled, (state, action) => {
+  state.loading = false;
+  const updated = action.payload;
+  const index = state.vendors.findIndex(v => v.id === updated.id);
+  if (index !== -1) {
+    state.vendors[index] = {
+      ...state.vendors[index],
+      ...updated,
+      bank: {
+        ...state.vendors[index].bank,
+        ...updated.bank,
+      },
+    };
+  }
+  state.editingVendor = null;
+})
+
+
+
+
       .addCase(updateVendor.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;

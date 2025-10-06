@@ -24,7 +24,11 @@ export const addVendor = createAsyncThunk(
       };
       const bankPayload = vendor.bank || {};
 
-      const res = await vendorAPI.create(vendorPayload, bankPayload); // Backend accepts 2 args
+// vendorThunks.js me
+const res = await vendorAPI.create({
+  ...vendorPayload,
+  bank: bankPayload
+});
       toast.success("Vendor successfully registered! 🎉");
       return res.data;
     } catch (error) {
@@ -40,15 +44,25 @@ export const updateVendor = createAsyncThunk(
   "vendor/updateVendor",
   async ({ id, vendor }, { rejectWithValue }) => {
     try {
-      await vendorAPI.update(id, vendor);
+     const res = await vendorAPI.update(id, {
+  ...vendor,
+  bank: vendor.bank
+});
       toast.success("Vendor details updated successfully! ✅");
-      return { id, data: vendor }; // Optimistic update
+
+      // ✅ Agar backend vendor return karta hai
+      return res.data.vendor || res.data; 
+
+      // Agar backend sirf message bhej raha hai to manually return karo
+      // return { ...vendor, id };
     } catch (error) {
       toast.error("Failed to update vendor details. Please try again.");
       return rejectWithValue(error.response?.data || error.message);
     }
   }
 );
+
+
 
 // ✅ Delete vendor
 export const deleteVendor = createAsyncThunk("vendor/deleteVendor", async (id, { rejectWithValue }) => {

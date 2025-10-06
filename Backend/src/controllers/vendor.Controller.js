@@ -93,18 +93,32 @@ const getVendors = (req, res) => {
 // =============== Update ==================
 const updateVendor = (req, res) => {
   const vendor_id = req.params.id;
-  const {vendor_name, firm_name, gst_no, address, contact_number, bank, status } = req.body;
+  const { vendor_name, firm_name, gst_no, address, contact_number, bank, status } = req.body;
 
   VendorModel.updateVendor(
     vendor_id,
-    {vendor_name, firm_name, gst_no, address, contact_number, status },
+    { vendor_name, firm_name, gst_no, address, contact_number, status },
     bank,
     (err) => {
       if (err) return res.status(500).json(err);
-      res.json({ message: "Vendor updated successfully!" });
+
+      // ✅ Update ke baad vendor with bank fetch karo
+      VendorModel.getVendorById(vendor_id, (err, vendor) => {
+        if (err) return res.status(500).json(err);
+
+       res.status(200).json({
+  message: "Vendor updated successfully!",
+  vendor: {
+    ...vendor,
+    bank: bank || {}
+  }
+});
+
+      });
     }
   );
 };
+
 
 // =============== Delete ==================
 const deleteVendor = (req, res) => {

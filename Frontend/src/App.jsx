@@ -11,6 +11,7 @@ import FarmerRegistrationPage from "./Pages/FarmerRegistrationPage";
 import ProformaInvoice from "./Pages/ProformaInvoice";
 import Categories from "./components/categories/Categories";
 import Products from "./Pages/products/Products";
+import Purchases from "./components/purchase/Purchases.jsx";
 
 
 export default function App() {
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="/proforma" element={<ProformaInvoice />} />
             <Route path="/category" element={<Categories />} />
             <Route path="/product" element={<Products/>} />
+           <Route path="/purchases" element={<Purchases />} />
 
           </Routes>
         </main>

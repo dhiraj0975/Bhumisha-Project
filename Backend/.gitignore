@@ -9,3 +9,12 @@ npm-debug.log
 npm-shrinkwrap.json
 package-lock.json
 yarn.lock
+
+node_modules
+/node_modules
+.env
+.env.development.local
+.env.local
+.env.production.local
+.<|code_middle|>
+

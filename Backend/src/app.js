@@ -8,6 +8,7 @@ const vendorRoutes = require("./routes/vendor.routes");
 const farmerRoutes = require("./routes/farmer.routes");
 const categoryRoutes = require("./routes/categories.routes");
 const productRoutes = require("./routes/product.routes");
+const purchaseRoutes = require("./routes/purchase.routes");
 
 
 // ===============  Middleware for CORS =================
@@ -33,5 +34,6 @@ app.use("/api/vendors", vendorRoutes);
 app.use("/api/farmers", farmerRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
+app.use("/api/purchase", purchaseRoutes);
 
 module.exports = app;
