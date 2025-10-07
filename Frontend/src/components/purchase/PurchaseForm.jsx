@@ -37,7 +37,7 @@ const PurchaseForm = ({ onSaved }) => {
   const [header, setHeader] = useState({
     bill_date: "",
     bill_time: "00:00",
-    bill_time_am_pm: "PM",
+    
     vendor_id: "",
     address: "",
     mobile_no: "",
@@ -79,7 +79,7 @@ const PurchaseForm = ({ onSaved }) => {
           ...prev,
           bill_date: formattedDate,
           bill_time: formattedTime,
-          bill_time_am_pm: ampm,
+
         }));
       } catch (e) {
         console.error("Master fetch error", e);
@@ -119,11 +119,10 @@ const PurchaseForm = ({ onSaved }) => {
         const data = res?.data || {};
         const { time, ampm } = data.bill_time
           ? fromISOToTime(data.bill_time)
-          : { time: "00:00", ampm: "PM" };
+          : { time: "00:00"};
         setHeader({
           bill_date: data.bill_date || "",
-          bill_time: time,
-          bill_time_am_pm: ampm,
+          bill_time: time, 
           vendor_id: data.vendor_id || "",
           address: data.address || "",
           mobile_no: data.mobile_no || "",
@@ -262,7 +261,7 @@ const PurchaseForm = ({ onSaved }) => {
               onChange={onHeader}
               className="border rounded p-1"
             />
-            <select
+            {/* <select
               name="bill_time_am_pm"
               value={header.bill_time_am_pm || "PM"}
               onChange={onHeader}
@@ -270,7 +269,7 @@ const PurchaseForm = ({ onSaved }) => {
             >
               <option>AM</option>
               <option>PM</option>
-            </select>
+            </select> */}
           </div>
         </div>
 
