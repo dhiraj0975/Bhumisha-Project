@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import PurchaseAPI from "../../axios/purchaseApi";
@@ -18,7 +17,6 @@ const to24h = (hhmm = "00:00", ampm = "PM") => {
 };
 
 const fromISOToTime = (iso = "") => {
-  // returns {time:"HH:MM", ampm:"AM|PM"} in 12h display
   const hh = Number(iso?.slice(11, 13) || 0);
   const mm = iso?.slice(14, 16) || "00";
   const ampm = hh >= 12 ? "PM" : "AM";
@@ -27,7 +25,7 @@ const fromISOToTime = (iso = "") => {
   return { time: `${String(displayH).padStart(2, "0")}:${mm}`, ampm };
 };
 
-const PurchaseForm = () => {
+const PurchaseForm = ({ onSaved }) => {
   const { poId } = useParams();
   const isEditMode = Boolean(poId);
 
@@ -35,7 +33,6 @@ const PurchaseForm = () => {
   const [vendors, setVendors] = useState([]);
   const [products, setProducts] = useState([]);
 
-  // Header state (PO removed)
   const [header, setHeader] = useState({
     bill_date: "",
     bill_time: "00:00",
@@ -48,85 +45,80 @@ const PurchaseForm = () => {
     terms_condition: "",
   });
 
-  // Rows state
   const [rows, setRows] = useState([
     { product_id: "", item_name: "", hsn_code: "", size: 1, rate: 0, d1_percent: 0, gst_percent: 0 },
   ]);
 
-  // Fetch vendors and products
-useEffect(() => {
-  const fetchMaster = async () => {
-    try {
-      const [vRes, pRes] = await Promise.all([
-        VendorAPI.getAll(),
-        ProductAPI.getAll(),
-      ]);
-      setVendors(vRes?.data || []);
-      setProducts(pRes?.data || []);
+  useEffect(() => {
+    const fetchMaster = async () => {
+      try {
+        const [vRes, pRes] = await Promise.all([
+          VendorAPI.getAll(),
+          ProductAPI.getAll(),
+        ]);
+        setVendors(vRes?.data || []);
+        setProducts(pRes?.data || []);
 
-      // ✅ Set current date & time
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, "0");
-      const day = String(now.getDate()).padStart(2, "0");
-      const hours = now.getHours();
-      const minutes = now.getMinutes();
-      const ampm = hours >= 12 ? "PM" : "AM";
-      let displayH = hours % 12;
-      if (displayH === 0) displayH = 12;
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, "0");
+        const day = String(now.getDate()).padStart(2, "0");
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        const ampm = hours >= 12 ? "PM" : "AM";
+        let displayH = hours % 12;
+        if (displayH === 0) displayH = 12;
 
-      const formattedTime = `${String(displayH).padStart(2, "0")}:${String(
-        minutes
-      ).padStart(2, "0")}`;
-      const formattedDate = `${year}-${month}-${day}`;
+        const formattedTime = `${String(displayH).padStart(2, "0")}:${String(
+          minutes
+        ).padStart(2, "0")}`;
+        const formattedDate = `${year}-${month}-${day}`;
 
+        setHeader((prev) => ({
+          ...prev,
+          bill_date: formattedDate,
+          bill_time: formattedTime,
+          bill_time_am_pm: ampm,
+        }));
+      } catch (e) {
+        console.error("Master fetch error", e);
+      }
+    };
+    fetchMaster();
+  }, []);
+
+  const onVendorChange = (e) => {
+    const vendorId = e.target.value;
+    const selectedVendor = vendors.find((v) => String(v.id) === String(vendorId));
+
+    if (selectedVendor) {
       setHeader((prev) => ({
         ...prev,
-        bill_date: formattedDate,
-        bill_time: formattedTime,
-        bill_time_am_pm: ampm,
+        vendor_id: vendorId,
+        address: selectedVendor.address || "",
+        mobile_no: selectedVendor.contact_number || "",
+        gst_no: selectedVendor.gst_no || "",
       }));
-    } catch (e) {
-      console.error("Master fetch error", e);
+    } else {
+      setHeader((prev) => ({
+        ...prev,
+        vendor_id: "",
+        address: "",
+        mobile_no: "",
+        gst_no: "",
+      }));
     }
   };
-  fetchMaster();
-}, []);
 
-  // Header change me thoda update karo
-const onVendorChange = (e) => {
-  const vendorId = e.target.value;
-  const selectedVendor = vendors.find((v) => String(v.id) === String(vendorId));
-
-  if (selectedVendor) {
-    setHeader((prev) => ({
-      ...prev,
-      vendor_id: vendorId,
-      address: selectedVendor.address || "",
-      mobile_no: selectedVendor.contact_number || "",
-      gst_no: selectedVendor.gst_no || "",
-    }));
-  } else {
-    // Agar 'Select' choose kiya hai
-    setHeader((prev) => ({
-      ...prev,
-      vendor_id: "",
-      address: "",
-      mobile_no: "",
-      gst_no: "",
-    }));
-  }
-};
-
-
-  // Prefill edit
   useEffect(() => {
     if (!isEditMode) return;
     const load = async () => {
       try {
         const res = await PurchaseAPI.getById(poId);
         const data = res?.data || {};
-        const { time, ampm } = data.bill_time ? fromISOToTime(data.bill_time) : { time: "00:00", ampm: "PM" };
+        const { time, ampm } = data.bill_time
+          ? fromISOToTime(data.bill_time)
+          : { time: "00:00", ampm: "PM" };
         setHeader({
           bill_date: data.bill_date || "",
           bill_time: time,
@@ -156,10 +148,8 @@ const onVendorChange = (e) => {
     load();
   }, [isEditMode, poId]);
 
-  // Header change
   const onHeader = (e) => setHeader((p) => ({ ...p, [e.target.name]: e.target.value }));
 
-  // Row change
   const onRow = (i, field, value) => {
     setRows((prev) => {
       const next = [...prev];
@@ -170,10 +160,12 @@ const onVendorChange = (e) => {
   };
 
   const addRow = () =>
-    setRows((p) => [...p, { product_id: "", item_name: "", hsn_code: "", size: 1, rate: 0, d1_percent: 0, gst_percent: 0 }]);
+    setRows((p) => [
+      ...p,
+      { product_id: "", item_name: "", hsn_code: "", size: 1, rate: 0, d1_percent: 0, gst_percent: 0 },
+    ]);
   const removeRow = (i) => setRows((p) => p.filter((_, idx) => idx !== i));
 
-  // Calculations like commented example
   const calc = (r) => {
     const base = (r.size || 0) * (r.rate || 0);
     const perUnitDisc = ((r.rate || 0) * (r.d1_percent || 0)) / 100;
@@ -186,32 +178,26 @@ const onVendorChange = (e) => {
 
   const totals = useMemo(
     () =>
-      rows.reduce(
-        (a, r) => {
-          const c = calc(r);
-          a.base += c.base;
-          a.disc += c.totalDisc;
-          a.taxable += c.taxable;
-          a.gst += c.gstAmt;
-          a.final += c.final;
-          return a;
-        },
-        { base: 0, disc: 0, taxable: 0, gst: 0, final: 0 }
-      ),
+      rows.reduce((a, r) => {
+        const c = calc(r);
+        a.base += c.base;
+        a.disc += c.totalDisc;
+        a.taxable += c.taxable;
+        a.gst += c.gstAmt;
+        a.final += c.final;
+        return a;
+      }, { base: 0, disc: 0, taxable: 0, gst: 0, final: 0 }),
     [rows]
   );
 
-  // Submit
   const onSubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
 
-      // Build bill_time ISO-like string using date + time
-      // If header.bill_date is yyyy-mm-dd, join with 24h time and assume local TZ
       let bill_time_iso = "";
       if (header.bill_date) {
-        const t24 = to24h(header.bill_time || "00:00", header.bill_time_am_pm || "PM"); // "HH:MM:SS"
+        const t24 = to24h(header.bill_time || "00:00", header.bill_time_am_pm || "PM");
         bill_time_iso = `${header.bill_date}T${t24}`;
       }
 
@@ -229,6 +215,10 @@ const onVendorChange = (e) => {
       }
 
       alert("Purchase saved successfully");
+
+      if (!isEditMode && typeof onSaved === "function") {
+        onSaved();
+      }
     } catch (err) {
       console.error(err);
       alert("Failed to save purchase");
@@ -237,7 +227,6 @@ const onVendorChange = (e) => {
     }
   };
 
-  // Validation (no PO field)
   const isFormValid =
     String(header.bill_date || "").trim() !== "" &&
     String(header.vendor_id || "").trim() !== "" &&
@@ -248,11 +237,16 @@ const onVendorChange = (e) => {
 
   return (
     <form onSubmit={onSubmit} className="p-3">
-      {/* Header strip (like commented UI, without PO) */}
       <div className="grid grid-cols-6 gap-3 border p-3 rounded">
         <div className="flex flex-col">
           <label className="text-xs">Bill Date</label>
-          <input type="date" className="border rounded p-1" name="bill_date" value={header.bill_date} onChange={onHeader} />
+          <input
+            type="date"
+            className="border rounded p-1"
+            name="bill_date"
+            value={header.bill_date}
+            onChange={onHeader}
+          />
         </div>
 
         <div className="flex flex-col">
@@ -279,20 +273,19 @@ const onVendorChange = (e) => {
 
         <div className="flex flex-col">
           <label className="text-xs">SUPPLIER</label>
-<select
-  className="border rounded p-1"
-  name="vendor_id"
-  value={header.vendor_id}
-  onChange={onVendorChange}  // ✅ yaha updated handler
->
-  <option value="">Select</option>
-  {vendors.map((v) => (
-    <option key={v.id} value={v.id}>
-      {v.vendor_name || v.name}
-    </option>
-  ))}
-</select>
-
+          <select
+            className="border rounded p-1"
+            name="vendor_id"
+            value={header.vendor_id}
+            onChange={onVendorChange}
+          >
+            <option value="">Select</option>
+            {vendors.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.vendor_name || v.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex flex-col">
@@ -314,25 +307,12 @@ const onVendorChange = (e) => {
           <label className="text-xs">Bill No.</label>
           <input className="border rounded p-1" name="bill_no" value={header.bill_no} onChange={onHeader} />
         </div>
-
-        {/* <div className="flex flex-col col-span-2">
-          <label className="text-xs">Terms</label>
-          <input
-            className="border rounded p-1"
-            name="terms_condition"
-            value={header.terms_condition}
-            onChange={onHeader}
-            placeholder="e.g., 30 days payment term"
-          />
-        </div> */}
       </div>
 
-      {/* Final Amount banner */}
       <div className="bg-black text-yellow-300 text-center text-2xl font-semibold py-2 mt-3 mb-2 rounded">
         FINAL AMOUNT: {fx(totals.final)}
       </div>
 
-      {/* Table like commented design */}
       <div className="overflow-auto">
         <table className="w-full text-sm border">
           <thead className="bg-green-700 text-white">
