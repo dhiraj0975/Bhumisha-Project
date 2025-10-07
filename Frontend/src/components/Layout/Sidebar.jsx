@@ -141,4 +141,5 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
       </nav>
     </aside>
   );
+  
 }
