@@ -124,8 +124,12 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
         <Link to="/farmer" className={linkClass("/farmer")}>
           <FaUser /> {!collapsed && "Farmer"}
         </Link>
+
         <Link to="/category" className={linkClass("/category")}>
             <FaTags /> {!collapsed && "Category"}
+        </Link>
+                <Link to="/customers" className={linkClass("/customers")}>
+          <FaUser /> {!collapsed && "Customers"}
         </Link>
         <Link to="/product" className={linkClass("/product")}>
           <FaBoxOpen /> {!collapsed && "Products"}

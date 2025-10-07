@@ -12,6 +12,7 @@ import ProformaInvoice from "./Pages/ProformaInvoice";
 import Categories from "./components/categories/Categories";
 import Products from "./Pages/products/Products";
 import Purchases from "./components/purchase/Purchases.jsx";
+import CustomersPage from "./components/customers/CustomersPage.jsx";
 
 
 export default function App() {
@@ -50,6 +51,7 @@ export default function App() {
             <Route path="/category" element={<Categories />} />
             <Route path="/product" element={<Products/>} />
            <Route path="/purchases" element={<Purchases />} />
+           <Route path="/customers" element={<CustomersPage />} />
 
           </Routes>
         </main>
