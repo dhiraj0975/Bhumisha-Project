@@ -152,3 +152,4 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
     </div>
   );
 }
+
