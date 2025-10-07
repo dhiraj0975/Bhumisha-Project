@@ -14,6 +14,8 @@ import Products from "./Pages/products/Products";
 import Purchases from "./components/purchase/Purchases.jsx";
 import PurchaseEdit from "./Pages/purchase/PurchaseEdit.jsx";
 import PurchaseView from "./Pages/purchase/PurchaseView.jsx";
+import CustomersPage from "./components/customers/CustomersPage.jsx";
+import SalesPage from './components/Sales/SalesPage';
 
 
 export default function App() {
@@ -54,6 +56,8 @@ export default function App() {
            <Route path="/purchases" element={<Purchases />} />
            <Route path="/purchases/edit/:poId" element={<PurchaseEdit />} />
            <Route path="/purchases/view/:poId" element={<PurchaseView />} />
+           <Route path="/customers" element={<CustomersPage />} />
+           <Route path="/sales" element={<SalesPage />} />
 
           </Routes>
         </main>
