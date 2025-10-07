@@ -68,32 +68,36 @@ const purchaseController = {
   // ✅ Update Purchase
 update: async (req, res) => {
   const { id } = req.params;
-  const { vendor_name, firm_name, gst_no, bill_no, bill_date, status, items } = req.body;
+  const { vendor_id, vendor_name, firm_name, gst_no, bill_no, bill_date, status, items } = req.body;
 
-  if (!vendor_name) return res.status(400).json({ error: "vendor_name is required" });
+  // Allow update when either vendor_id or vendor_name is provided (frontend sends vendor_id)
+  if (!vendor_id && !vendor_name) return res.status(400).json({ error: "vendor_id or vendor_name is required" });
   if (!bill_no) return res.status(400).json({ error: "bill_no is required" });
   if (!bill_date) return res.status(400).json({ error: "bill_date is required" });
 
-  const connection = await db.promise().getConnection();
+  const connection = db.promise();
   try {
-    await connection.beginTransaction();
+    await connection.query("START TRANSACTION");
 
-    // ✅ Check if vendor exists
-    let [vendorRows] = await connection.query(
-      `SELECT id FROM vendors WHERE vendor_name = ?`,
-      [vendor_name]
-    );
-
-    let vendor_id;
-    if (vendorRows.length > 0) {
-      vendor_id = vendorRows[0].id;
-    } else {
-      // ✅ Create new vendor if not exists
-      const [result] = await connection.query(
-        `INSERT INTO vendors (vendor_name, firm_name, gst_no, status) VALUES (?, ?, ?, ?)`,
-        [vendor_name, firm_name || "", gst_no || null, "active"]
+    // Resolve vendor_id: prefer provided vendor_id, otherwise try to find/create by vendor_name
+    let resolvedVendorId = vendor_id;
+    if (!resolvedVendorId) {
+      // try find existing vendor by name
+      let [vendorRows] = await connection.query(
+        `SELECT id FROM vendors WHERE vendor_name = ?`,
+        [vendor_name]
       );
-      vendor_id = result.insertId;
+
+      if (vendorRows.length > 0) {
+        resolvedVendorId = vendorRows[0].id;
+      } else {
+        // create new vendor
+        const [result] = await connection.query(
+          `INSERT INTO vendors (vendor_name, firm_name, gst_no, status) VALUES (?, ?, ?, ?)`,
+          [vendor_name, firm_name || "", gst_no || null, "active"]
+        );
+        resolvedVendorId = result.insertId;
+      }
     }
 
     const formattedDate = new Date(bill_date).toISOString().split("T")[0];
@@ -101,40 +105,86 @@ update: async (req, res) => {
     // ✅ Update purchase table
     await connection.query(
       `UPDATE purchases SET vendor_id=?, gst_no=?, bill_no=?, bill_date=?, status=? WHERE id=?`,
-      [vendor_id, gst_no || null, bill_no, formattedDate, status || "Active", id]
+      [resolvedVendorId, gst_no || null, bill_no, formattedDate, status || "Active", id]
     );
 
-    // ✅ Update or insert purchase_items
-    if (Array.isArray(items) && items.length > 0) {
+    // ✅ Sync purchase_items: update existing, insert new, delete removed; adjust product stock accordingly
+    if (Array.isArray(items)) {
+      // 1) fetch existing items for this purchase
+      const [existingRows] = await connection.query(
+        `SELECT id, product_id, size FROM purchase_items WHERE purchase_id = ?`,
+        [id]
+      );
+      const existingMap = {};
+      const existingIds = [];
+      for (const r of existingRows) {
+        existingMap[r.id] = r;
+        existingIds.push(r.id);
+      }
+
+      const incomingIds = [];
+
+      // 2) process incoming items: updates and inserts
       for (let item of items) {
-        if (item.id) {
+        const itemId = item.id ? Number(item.id) : null;
+        const newSize = Number(item.size || 0);
+        if (itemId) {
+          incomingIds.push(itemId);
+          const prev = existingMap[itemId];
+          const prevSize = prev ? Number(prev.size || 0) : 0;
+          const sizeDelta = newSize - prevSize; // can be negative
+
           await connection.query(
             `UPDATE purchase_items SET product_id=?, rate=?, size=?, unit=?, status=? WHERE id=?`,
-            [item.product_id, item.rate, item.size, item.unit || "PCS", item.status || "Active", item.id]
+            [item.product_id, item.rate, newSize, item.unit || "PCS", item.status || "Active", itemId]
           );
+
+          if (sizeDelta !== 0) {
+            await connection.query(
+              `UPDATE products SET size = size + ? WHERE id = ?`,
+              [sizeDelta, item.product_id]
+            );
+          }
         } else {
-          await connection.query(
+          // insert new item
+          const [insRes] = await connection.query(
             `INSERT INTO purchase_items (purchase_id, product_id, rate, size, unit, status) VALUES (?, ?, ?, ?, ?, ?)`,
-            [id, item.product_id, item.rate, item.size, item.unit || "PCS", "Active"]
+            [id, item.product_id, item.rate, newSize, item.unit || "PCS", "Active"]
+          );
+          // update product stock for new row
+          await connection.query(
+            `UPDATE products SET size = size + ? WHERE id = ?`,
+            [newSize, item.product_id]
           );
         }
+      }
 
-        // ✅ Update product stock
-        await connection.query(
-          `UPDATE products SET size = size + ? WHERE id = ?`,
-          [item.size, item.product_id]
-        );
+      // 3) delete removed items (present in DB but not in incoming)
+      const toDelete = existingIds.filter((eid) => !incomingIds.includes(eid));
+      if (toDelete.length > 0) {
+        for (const delId of toDelete) {
+          const r = existingMap[delId];
+          if (r) {
+            // subtract the previous size from product stock
+            await connection.query(
+              `UPDATE products SET size = size - ? WHERE id = ?`,
+              [r.size, r.product_id]
+            );
+            // delete the purchase_items row
+            await connection.query(`DELETE FROM purchase_items WHERE id = ?`, [delId]);
+          }
+        }
       }
     }
 
-    await connection.commit();
+    await connection.query("COMMIT");
     res.json({ message: "Purchase updated successfully" });
   } catch (err) {
-    await connection.rollback();
+    await connection.query("ROLLBACK");
     console.error("Purchase update error:", err);
     res.status(500).json({ error: err.message });
   } finally {
-    connection.release();
+    // using connection = db.promise() (no release needed)
   }
 }
 

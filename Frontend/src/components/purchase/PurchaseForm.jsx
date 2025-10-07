@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import PurchaseAPI from "../../axios/purchaseApi";
 import VendorAPI from "../../axios/vendorsAPI";
 import ProductAPI from "../../axios/productAPI";
@@ -28,6 +28,7 @@ const fromISOToTime = (iso = "") => {
 const PurchaseForm = ({ onSaved }) => {
   const { poId } = useParams();
   const isEditMode = Boolean(poId);
+  const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [vendors, setVendors] = useState([]);
@@ -210,14 +211,16 @@ const PurchaseForm = ({ onSaved }) => {
 
       if (isEditMode) {
         await PurchaseAPI.update(poId, payload);
+        alert("Purchase updated successfully");
+        // navigate back to list after update
+        navigate("/purchases");
       } else {
         await PurchaseAPI.create(payload);
-      }
+        alert("Purchase saved successfully");
 
-      alert("Purchase saved successfully");
-
-      if (!isEditMode && typeof onSaved === "function") {
-        onSaved();
+        if (!isEditMode && typeof onSaved === "function") {
+          onSaved();
+        }
       }
     } catch (err) {
       console.error(err);
@@ -468,7 +471,7 @@ const PurchaseForm = ({ onSaved }) => {
             loading || !isFormValid ? "opacity-50 cursor-not-allowed" : "opacity-100 cursor-pointer"
           }`}
         >
-          {loading ? "Saving..." : isEditMode ? "Save Items" : "Save Purchase"}
+          {loading ? (isEditMode ? "Updating..." : "Saving...") : isEditMode ? "Update" : "Save Purchase"}
         </button>
       </div>
     </form>

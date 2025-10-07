@@ -12,6 +12,8 @@ import ProformaInvoice from "./Pages/ProformaInvoice";
 import Categories from "./components/categories/Categories";
 import Products from "./Pages/products/Products";
 import Purchases from "./components/purchase/Purchases.jsx";
+import PurchaseEdit from "./Pages/purchase/PurchaseEdit.jsx";
+import PurchaseView from "./Pages/purchase/PurchaseView.jsx";
 
 
 export default function App() {
@@ -50,6 +52,8 @@ export default function App() {
             <Route path="/category" element={<Categories />} />
             <Route path="/product" element={<Products/>} />
            <Route path="/purchases" element={<Purchases />} />
+           <Route path="/purchases/edit/:poId" element={<PurchaseEdit />} />
+           <Route path="/purchases/view/:poId" element={<PurchaseView />} />
 
           </Routes>
         </main>
