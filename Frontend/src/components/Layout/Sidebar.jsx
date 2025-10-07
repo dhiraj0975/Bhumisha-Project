@@ -137,6 +137,9 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
         <Link to="/purchases" className={linkClass("/purchases")}>
           <FaBoxOpen /> {!collapsed && "Purchases"}
         </Link>
+        <Link to="/sales" className={linkClass("/sales")}>
+          <FaBoxOpen /> {!collapsed && "Sales"}
+        </Link>
         
       </nav>
     </aside>
