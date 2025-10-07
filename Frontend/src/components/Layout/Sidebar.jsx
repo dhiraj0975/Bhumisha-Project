@@ -1,24 +1,6 @@
 "use client";
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import {
-  FaFileInvoice,
-  FaTable,
-  FaBarcode,
-  FaPercentage,
-  FaBars,
-  FaChevronLeft,
-  FaHome,
-  FaUser,
-  FaUserFriends,
-   FaUserTie,    // ✅ Vendor
-  FaTractor,    // ✅ Farmer
-  FaTags,       // ✅ Category
-  FaBoxOpen     // ✅ Product
-} from "react-icons/fa";
-import { ChevronDownIcon } from "@heroicons/react/24/solid";
-
-
 
 export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollapse }) {
   const location = useLocation();
@@ -28,13 +10,49 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
     setOpenMenu(openMenu === menu ? null : menu);
   };
 
-  // ✅ Fix: now works properly with exact path
   const linkClass = (path) =>
     `flex items-center gap-3 px-4 py-2 rounded-md cursor-pointer transition-all duration-200 ${
       location.pathname === path
         ? "bg-[var(--accent)] text-white"
         : "hover:bg-[var(--secondary-bg)] text-[var(--text-color)]"
     }`;
+
+  // Small helper for emoji stickers
+  const Sticker = ({ label, symbol, className = "", decorative = false }) => (
+    <span
+      className={`text-xl leading-none select-none ${className}`}
+      {...(decorative
+        ? { "aria-hidden": "true" }
+        : { role: "img", "aria-label": label })}
+    >
+      {symbol}
+    </span>
+  );
+
+  // Chevron for dropdown indicator
+  const Chevron = ({ open }) => (
+    <span
+      className={`inline-block transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+      aria-hidden="true"
+    >
+      ▼
+    </span>
+  );
+
+  // Left chevron for collapse toggle
+  const ChevronLeft = ({ rotated }) => (
+    <span
+      className={`inline-block transition-transform duration-300 ${rotated ? "rotate-180" : ""}`}
+      aria-hidden="true"
+    >
+      ◀
+    </span>
+  );
+
+  // Hamburger for mobile close
+  const Bars = () => (
+    <span aria-hidden="true">☰</span>
+  );
 
   return (
     <aside
@@ -55,17 +73,14 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
           <button
             onClick={toggleCollapse}
             className="hidden md:flex items-center justify-center w-8 h-8 rounded-full hover:bg-[var(--secondary-bg)]"
+            aria-label="Toggle collapse"
           >
-            <FaChevronLeft
-              className={`text-[var(--text-color)] transition-transform duration-300 ${
-                collapsed ? "rotate-180" : ""
-              }`}
-            />
+            <ChevronLeft rotated={collapsed} />
           </button>
 
           {/* Close button (mobile) */}
-          <button className="md:hidden" onClick={toggleSidebar}>
-            <FaBars className="text-[var(--text-color)]" />
+          <button className="md:hidden w-8 h-8 grid place-items-center" onClick={toggleSidebar} aria-label="Close sidebar">
+            <Bars />
           </button>
         </div>
       </div>
@@ -74,7 +89,8 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
       <nav className="p-4 space-y-2 font-medium">
         {/* Dashboard */}
         <Link to="/" className={linkClass("/")}>
-          <FaHome /> {!collapsed && "Dashboard"}
+          <Sticker label="Dashboard" symbol="🏠" decorative={collapsed ? false : true} />
+          {!collapsed && "Dashboard"}
         </Link>
 
         {/* Masters Dropdown */}
@@ -82,67 +98,67 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
           <button
             onClick={() => toggleDropdown("masters")}
             className="flex items-center justify-between w-full px-4 py-2 rounded-md hover:bg-[var(--secondary-bg)] text-[var(--text-color)]"
+            aria-expanded={openMenu === "masters"}
+            aria-controls="menu-masters"
           >
             <span className="flex items-center gap-3">
-              <FaFileInvoice /> {!collapsed && "Masters"}
+              <Sticker label="Masters" symbol="📁" decorative={collapsed ? false : true} />
+              {!collapsed && "Masters"}
             </span>
-            {!collapsed && (
-              <ChevronDownIcon
-                className={`w-4 h-4 transition-transform ${
-                  openMenu === "masters" ? "rotate-180" : ""
-                }`}
-              />
-            )}
+            {!collapsed && <Chevron open={openMenu === "masters"} />}
           </button>
 
           {openMenu === "masters" && !collapsed && (
-            <div className="ml-6 mt-1 space-y-1">
-              {/* <Link to="/vendor" className={linkClass("/vendor")}>
-                <FaUserFriends /> Vendor
-              </Link>
-
-              <Link to="/farmer" className={linkClass("/farmer")}>
-                <FaUser /> Farmer
-              </Link> */}
-
+            <div id="menu-masters" className="ml-6 mt-1 space-y-1">
               <Link to="/proforma" className={linkClass("/proforma")}>
-                <FaFileInvoice /> Proforma Invoice
+                <Sticker label="Proforma Invoice" symbol="🧾" decorative={collapsed ? false : true} />
+                {!collapsed && "Proforma Invoice"}
               </Link>
 
               <Link to="/gst" className={linkClass("/gst")}>
-                <FaPercentage /> GST Details
+                <Sticker label="GST Details" symbol="📊" decorative={collapsed ? false : true} />
+                {!collapsed && "GST Details"}
               </Link>
             </div>
           )}
         </div>
 
-        {/* Extra Links (if needed outside Masters) */}
+        {/* Extra Links */}
         <Link to="/vendor" className={linkClass("/vendor")}>
-          <FaUserFriends /> {!collapsed && "Vendor"}
+          <Sticker label="Vendor" symbol="🧑‍💼" decorative={collapsed ? false : true} />
+          {!collapsed && "Vendor"}
         </Link>
 
         <Link to="/farmer" className={linkClass("/farmer")}>
-          <FaUser /> {!collapsed && "Farmer"}
+          <Sticker label="Farmer" symbol="🚜" decorative={collapsed ? false : true} />
+          {!collapsed && "Farmer"}
         </Link>
 
         <Link to="/category" className={linkClass("/category")}>
-            <FaTags /> {!collapsed && "Category"}
+          <Sticker label="Category" symbol="🏷️" decorative={collapsed ? false : true} />
+          {!collapsed && "Category"}
         </Link>
-                <Link to="/customers" className={linkClass("/customers")}>
-          <FaUser /> {!collapsed && "Customers"}
+
+        <Link to="/customers" className={linkClass("/customers")}>
+          <Sticker label="Customers" symbol="👥" decorative={collapsed ? false : true} />
+          {!collapsed && "Customers"}
         </Link>
+
         <Link to="/product" className={linkClass("/product")}>
-          <FaBoxOpen /> {!collapsed && "Products"}
+          <Sticker label="Products" symbol="📦" decorative={collapsed ? false : true} />
+          {!collapsed && "Products"}
         </Link>
+
         <Link to="/purchases" className={linkClass("/purchases")}>
-          <FaBoxOpen /> {!collapsed && "Purchases"}
+          <Sticker label="Purchases" symbol="🛒" decorative={collapsed ? false : true} />
+          {!collapsed && "Purchases"}
         </Link>
+
         <Link to="/sales" className={linkClass("/sales")}>
-          <FaBoxOpen /> {!collapsed && "Sales"}
+          <Sticker label="Sales" symbol="💹" decorative={collapsed ? false : true} />
+          {!collapsed && "Sales"}
         </Link>
-        
       </nav>
     </aside>
   );
-  
 }

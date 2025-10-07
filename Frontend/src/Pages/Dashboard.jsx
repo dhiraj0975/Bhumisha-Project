@@ -1,11 +1,5 @@
 import React from "react";
 import {
-  Users,
-  DollarSign,
-  FileText,
-  Building2,
-} from "lucide-react";
-import {
   LineChart,
   Line,
   BarChart,
@@ -16,7 +10,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { FaRupeeSign } from "react-icons/fa";
 
 const revenueData = [
   { month: "Jan", revenue: 12000 },
@@ -46,7 +39,7 @@ export default function Dashboard() {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg text-white flex items-center gap-4">
-          <Users size={36} />
+          <span className="text-4xl leading-none">🧑‍🤝‍🧑</span>
           <div>
             <p className="text-sm opacity-80">Total Users</p>
             <h3 className="text-2xl font-bold">1,245</h3>
@@ -54,15 +47,15 @@ export default function Dashboard() {
         </div>
 
         <div className="p-6 rounded-2xl bg-gradient-to-r from-green-500 to-emerald-600 shadow-lg text-white flex items-center gap-4">
-          <FaRupeeSign size={36} />
+          <span className="text-4xl leading-none">💸</span>
           <div>
             <p className="text-sm opacity-80">Total Revenue</p>
-            <h3 className="text-2xl font-bold">$54,300</h3>
+            <h3 className="text-2xl font-bold">₹54,300</h3>
           </div>
         </div>
 
         <div className="p-6 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-600 shadow-lg text-white flex items-center gap-4">
-          <FileText size={36} />
+          <span className="text-4xl leading-none">🧾</span>
           <div>
             <p className="text-sm opacity-80">Invoices</p>
             <h3 className="text-2xl font-bold">3,210</h3>
@@ -70,7 +63,7 @@ export default function Dashboard() {
         </div>
 
         <div className="p-6 rounded-2xl bg-gradient-to-r from-orange-500 to-red-600 shadow-lg text-white flex items-center gap-4">
-          <Building2 size={36} />
+          <span className="text-4xl leading-none">🏢</span>
           <div>
             <p className="text-sm opacity-80">Vendors</p>
             <h3 className="text-2xl font-bold">98</h3>
@@ -137,10 +130,11 @@ export default function Dashboard() {
             <tr className="border-b">
               <td className="px-4 py-2">#INV-1001</td>
               <td className="px-4 py-2">John Doe</td>
-              <td className="px-4 py-2">$320</td>
+              <td className="px-4 py-2">₹320</td>
               <td className="px-4 py-2">
-                <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
-                  Paid
+                <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded text-xs">
+                  <span>✅</span>
+                  <span>Paid</span>
                 </span>
               </td>
               <td className="px-4 py-2">24 Aug 2025</td>
@@ -148,10 +142,11 @@ export default function Dashboard() {
             <tr className="border-b">
               <td className="px-4 py-2">#INV-1002</td>
               <td className="px-4 py-2">Jane Smith</td>
-              <td className="px-4 py-2">$150</td>
+              <td className="px-4 py-2">₹150</td>
               <td className="px-4 py-2">
-                <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs">
-                  Pending
+                <span className="inline-flex items-center gap-1 bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs">
+                  <span>⏳</span>
+                  <span>Pending</span>
                 </span>
               </td>
               <td className="px-4 py-2">23 Aug 2025</td>
@@ -161,8 +156,9 @@ export default function Dashboard() {
               <td className="px-4 py-2">Apex Supplies</td>
               <td className="px-4 py-2">₹780</td>
               <td className="px-4 py-2">
-                <span className="bg-red-100 text-red-700 px-2 py-1 rounded text-xs">
-                  Overdue
+                <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded text-xs">
+                  <span>⚠️</span>
+                  <span>Overdue</span>
                 </span>
               </td>
               <td className="px-4 py-2">22 Aug 2025</td>

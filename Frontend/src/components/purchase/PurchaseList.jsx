@@ -34,7 +34,7 @@ export default function PurchaseList({ reload }) {
   // Purchase List View
   return (
     <div className="p-6">
-      <h1 className="text-3xl font-bold mb-6">Purchases List</h1>
+      <h1 className="text-3xl font-bold mb-6 p-3 bg-white shadow-md">Purchases List</h1>
 
       <table className="w-full border text-sm">
         <thead className="bg-green-700 text-white">

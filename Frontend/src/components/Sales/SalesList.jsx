@@ -82,6 +82,7 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
               <tr className="bg-gray-100">
                 <th className="p-2 border">Sl.No.</th>
                 <th className="p-2 border">Bill No</th>
+                <th className="p-2 border">Customer</th>
                 <th className="p-2 border">Date</th>
                 <th className="p-2 border">Customer</th>
                 <th className="p-2 border">Amount</th>
@@ -95,9 +96,7 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
               {filtered.map((r, idx) => (
                 <tr key={r.id} className="hover:bg-gray-50">
                   <td className="p-2 border">{idx + 1}</td>
-                  <td className="p-2 border">{r.bill_no}</td>
-                  <td className="p-2 border">{r.bill_date}</td>
-                  <td className="p-2 border">
+                   <td className="p-2 border">
                     <button
                       type="button"
                       onClick={() => onDetails?.(r.id)}
@@ -107,6 +106,10 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
                       {r.customer_name}
                     </button>
                   </td>
+                  <td className="p-2 border">{r.bill_no}</td>
+                                   
+                  <td className="p-2 border">{r.bill_date}</td>
+
                   <td className="p-2 border">{Number(r.total_amount || 0).toFixed(2)}</td>
                   <td className="p-2 border">
                     <span
@@ -152,4 +155,5 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
     </div>
   );
 }
+
 

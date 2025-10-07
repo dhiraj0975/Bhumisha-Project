@@ -223,118 +223,309 @@ export default function SalesForm({ sale, onSubmitted }) {
     }
   };
 
+  const COLORS = {
+  headerBg: "bg-green-700",
+  headerText: "text-white",
+  rowAlt: "odd:bg-white even:bg-gray-50",
+  cellBorder: "border",
+  input: "border rounded w-full h-8 px-2 text-xs",
+  inputNum: "border rounded w-16 h-8 px-2 text-right text-xs",
+  inputNumWide: "border rounded w-20 h-8 px-2 text-right text-xs",
+  badge: "font-semibold",
+};
+
   // Return same design wrappers and classes user provided
   return (
     <form onSubmit={onSubmit} className="bg-white shadow-lg rounded-xl p-6 mb-6">
       <h2 className="text-xl font-bold mb-4">{isEditMode ? "Update Sale" : "Create Sale"}</h2>
 
-      <div className="grid grid-cols-2 gap-4">
-        <input className="border p-2 rounded-lg" placeholder="Sale No." value={header.sale_no} onChange={(e) => setHeader((p) => ({ ...p, sale_no: e.target.value }))} />
-        <input type="date" className="border p-2 rounded-lg" value={header.date} onChange={(e) => setHeader((p) => ({ ...p, date: e.target.value }))} />
-        <select name="customer_id" className="border p-2 rounded-lg" value={header.customer_id} onChange={onHeader}>
-          <option value="">Select Customer</option>
-          {customers.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <input className="border p-2 rounded-lg" placeholder="Address" value={header.address} onChange={(e) => setHeader((p) => ({ ...p, address: e.target.value }))} />
-        <input className="border p-2 rounded-lg" placeholder="Mobile" value={header.mobile_no} onChange={(e) => setHeader((p) => ({ ...p, mobile_no: e.target.value }))} />
-        <input className="border p-2 rounded-lg" placeholder="GST No." value={header.gst_no} onChange={(e) => setHeader((p) => ({ ...p, gst_no: e.target.value }))} />
-        <select className="border p-2 rounded-lg" value={header.payment_status} onChange={(e) => setHeader((p) => ({ ...p, payment_status: e.target.value }))}>
-          <option>Unpaid</option>
-          <option>Partial</option>
-          <option>Paid</option>
-        </select>
-        <select className="border p-2 rounded-lg" value={header.payment_method} onChange={(e) => setHeader((p) => ({ ...p, payment_method: e.target.value }))}>
-          <option>Cash</option>
-          <option>Card</option>
-          <option>Online</option>
-          <option>Credit Card</option>
-          <option>UPI</option>
-        </select>
-      </div>
+<div className="grid grid-cols-4 gap-4">
+  {/* Row 1 */}
+  <div className="flex flex-col">
+    <label htmlFor="sale_no" className="text-sm text-gray-600 mb-1">Sale No.</label>
+    <input
+      id="sale_no"
+      className="border p-2 rounded-lg"
+      placeholder="Sale No."
+      value={header.sale_no}
+      onChange={(e) => setHeader((p) => ({ ...p, sale_no: e.target.value }))}
+    />
+  </div>
 
-      <div className="mt-6 overflow-x-auto">
-        <table className="min-w-full border">
-          <thead>
-            <tr className="bg-gray-100">
-              <th className="p-2 border">Product</th>
-              <th className="p-2 border">HSN</th>
-              <th className="p-2 border">Qty</th>
-              <th className="p-2 border">Rate</th>
-              <th className="p-2 border">Disc %</th>
-              <th className="p-2 border">GST %</th>
-              <th className="p-2 border">Taxable</th>
-              <th className="p-2 border">GST Amt</th>
-              <th className="p-2 border">Total</th>
-              <th className="p-2 border">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r, i) => {
-              const c = calc(r);
-              return (
-                <tr key={i} className="hover:bg-gray-50">
-                  <td className="p-2 border">
-                    <select
-                      className="border p-2 rounded-lg w-full"
-                      value={r.product_id}
-                      onChange={(e) => onRow(i, "product_id", e.target.value)}
-                    >
-                      <option value="">Select</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.product_name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="p-2 border">
-                    <input className="border p-2 rounded-lg w-full" value={r.hsn_code} onChange={(e) => onRow(i, "hsn_code", e.target.value)} />
-                  </td>
-                  <td className="p-2 border">
-                    <input type="number" className="border p-2 rounded-lg w-24" value={r.qty} onChange={(e) => onRow(i, "qty", e.target.value)} />
-                  </td>
-                  <td className="p-2 border">
-                    <input type="number" className="border p-2 rounded-lg w-28" value={r.rate} onChange={(e) => onRow(i, "rate", e.target.value)} />
-                  </td>
-                  <td className="p-2 border">
-                    <input type="number" className="border p-2 rounded-lg w-24" value={r.d1_percent} onChange={(e) => onRow(i, "d1_percent", e.target.value)} />
-                  </td>
-                  <td className="p-2 border">
-                    <input type="number" className="border p-2 rounded-lg w-24" value={r.gst_percent} onChange={(e) => onRow(i, "gst_percent", e.target.value)} />
-                  </td>
-                  <td className="p-2 border">{fx(c.taxable)}</td>
-                  <td className="p-2 border">{fx(c.gstAmt)}</td>
-                  <td className="p-2 border">{fx(c.final)}</td>
-                  <td className="p-2 border">
-                    <button className="px-3 py-1 bg-red-600 text-white rounded" onClick={() => removeRow(i)}>
-                      Remove
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="bg-gray-50">
-              <td className="p-2 border" colSpan={10}>
-                <button className="px-3 py-1 bg-gray-200 rounded" onClick={addRow} type="button">
-                  Add Row
-                </button>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+  <div className="flex flex-col">
+    <label htmlFor="date" className="text-sm text-gray-600 mb-1">Date</label>
+    <input
+      id="date"
+      type="date"
+      className="border p-2 rounded-lg"
+      value={header.date}
+      onChange={(e) => setHeader((p) => ({ ...p, date: e.target.value }))}
+    />
+  </div>
 
-      <div className="mt-4 grid grid-cols-4 gap-4">
-        <div className="p-3 bg-gray-50 rounded">Base: {fx(totals.base)}</div>
-        <div className="p-3 bg-gray-50 rounded">Discount: {fx(totals.disc)}</div>
-        <div className="p-3 bg-gray-50 rounded">Taxable: {fx(totals.taxable)}</div>
-        <div className="p-3 bg-gray-50 rounded">GST: {fx(totals.gst)}</div>
-        <div className="p-3 bg-gray-50 rounded col-span-4">Total: {fx(totals.final)}</div>
-      </div>
+  <div className="flex flex-col">
+    <label htmlFor="customer_id" className="text-sm text-gray-600 mb-1">Customer</label>
+    <select
+      id="customer_id"
+      name="customer_id"
+      className="border p-2 rounded-lg"
+      value={header.customer_id}
+      onChange={onHeader}
+    >
+      <option value="">Select Customer</option>
+      {customers.map((c) => (
+        <option key={c.id} value={c.id}>{c.name}</option>
+      ))}
+    </select>
+  </div>
+
+  <div className="flex flex-col">
+    <label htmlFor="address" className="text-sm text-gray-600 mb-1">Address</label>
+    <input
+      id="address"
+      className="border p-2 rounded-lg"
+      placeholder="Address"
+      value={header.address}
+      onChange={(e) => setHeader((p) => ({ ...p, address: e.target.value }))}
+    />
+  </div>
+
+  {/* Row 2 */}
+  <div className="flex flex-col">
+    <label htmlFor="mobile_no" className="text-sm text-gray-600 mb-1">Mobile</label>
+    <input
+      id="mobile_no"
+      className="border p-2 rounded-lg"
+      placeholder="Mobile"
+      value={header.mobile_no}
+      onChange={(e) => setHeader((p) => ({ ...p, mobile_no: e.target.value }))}
+    />
+  </div>
+
+  <div className="flex flex-col">
+    <label htmlFor="gst_no" className="text-sm text-gray-600 mb-1">GST No.</label>
+    <input
+      id="gst_no"
+      className="border p-2 rounded-lg"
+      placeholder="GST No."
+      value={header.gst_no}
+      onChange={(e) => setHeader((p) => ({ ...p, gst_no: e.target.value }))}
+    />
+  </div>
+
+  <div className="flex flex-col">
+    <label htmlFor="payment_status" className="text-sm text-gray-600 mb-1">Payment Status</label>
+    <select
+      id="payment_status"
+      className="border p-2 rounded-lg"
+      value={header.payment_status}
+      onChange={(e) => setHeader((p) => ({ ...p, payment_status: e.target.value }))}
+    >
+      <option>Unpaid</option>
+      <option>Partial</option>
+      <option>Paid</option>
+    </select>
+  </div>
+
+  <div className="flex flex-col">
+    <label htmlFor="payment_method" className="text-sm text-gray-600 mb-1">Payment Method</label>
+    <select
+      id="payment_method"
+      className="border p-2 rounded-lg"
+      value={header.payment_method}
+      onChange={(e) => setHeader((p) => ({ ...p, payment_method: e.target.value }))}
+    >
+      <option>Cash</option>
+      <option>Card</option>
+      <option>Online</option>
+      <option>Credit Card</option>
+      <option>UPI</option>
+    </select>
+  </div>
+</div>
+
+
+
+<div className="mt-3 overflow-x-auto">
+  <table className="min-w-full border text-xs">
+    <thead>
+      <tr className={`${COLORS.headerBg} ${COLORS.headerText}`}>
+        <th className="px-2 py-2 border text-center w-10">Sl</th>
+        <th className="px-2 py-2 border text-left">Item Name</th>
+        <th className="px-2 py-2 border text-left">HSNCode</th>
+        <th className="px-2 py-2 border text-center w-16">size</th>
+        <th className="px-2 py-2 border text-right">Rate</th>
+        <th className="px-2 py-2 border text-right">Amount</th>
+        <th className="px-2 py-2 border text-right">Disc %</th>
+        <th className="px-2 py-2 border text-right">per size Disc</th>
+        <th className="px-2 py-2 border text-right">Disc</th>
+        <th className="px-2 py-2 border text-right">GST%</th>
+        <th className="px-2 py-2 border text-right">GST Amt</th>
+        <th className="px-2 py-2 border text-right">FinalAmt</th>
+        <th className="px-2 py-2 border text-center w-16">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {rows.map((r, i) => {
+        const base = (Number(r.qty) || 0) * (Number(r.rate) || 0);
+        const perSizeDisc = Number(r.per_size_disc || 0); // optional field
+        const discPct = Number(r.d1_percent || 0);
+        const discFromPct = ((Number(r.rate) || 0) * discPct) / 100 * (Number(r.qty) || 0);
+        const discTotal = perSizeDisc + discFromPct;
+        const taxable = Math.max(base - discTotal, 0);
+        const gstAmt = (taxable * (Number(r.gst_percent) || 0)) / 100;
+        const finalAmt = taxable + gstAmt;
+
+        return (
+          <tr key={i} className={`${COLORS.rowAlt}`}>
+            <td className="px-2 py-1 border text-center">{i + 1}</td>
+
+            <td className="px-2 py-1 border">
+              <select
+                className={`${COLORS.input}`}
+                value={r.product_id}
+                onChange={(e) => onRow(i, "product_id", e.target.value)}
+              >
+                <option value="">Select</option>
+                {products.map((p) => (
+                  <option key={p.id} value={p.id}>{p.product_name}</option>
+                ))}
+              </select>
+            </td>
+
+            <td className="px-2 py-1 border">
+              <input
+                className={`${COLORS.input}`}
+                value={r.hsn_code}
+                onChange={(e) => onRow(i, "hsn_code", e.target.value)}
+              />
+            </td>
+
+            <td className="px-2 py-1 border text-center">
+              <input
+                className="border rounded w-14 h-8 px-2 text-center text-xs"
+                value={r.size || ""}
+                onChange={(e) => onRow(i, "size", e.target.value)}
+              />
+            </td>
+
+            <td className="px-2 py-1 border text-right">
+              <input
+                type="number"
+                className={`${COLORS.inputNumWide}`}
+                value={r.rate}
+                onChange={(e) => onRow(i, "rate", e.target.value)}
+              />
+            </td>
+
+            <td className="px-2 py-1 border text-right">
+              <span className={COLORS.badge}>{Number(base).toFixed(3)}</span>
+            </td>
+
+            <td className="px-2 py-1 border text-right">
+              <input
+                type="number"
+                className={`${COLORS.inputNum}`}
+                value={r.d1_percent}
+                onChange={(e) => onRow(i, "d1_percent", e.target.value)}
+              />
+            </td>
+
+            <td className="px-2 py-1 border text-right">
+              <input
+                type="number"
+                className={`${COLORS.inputNum}`}
+                value={r.per_size_disc || 0}
+                onChange={(e) => onRow(i, "per_size_disc", e.target.value)}
+              />
+            </td>
+
+            <td className="px-2 py-1 border text-right">
+              <span className={COLORS.badge}>{Number(discTotal).toFixed(3)}</span>
+            </td>
+
+            <td className="px-2 py-1 border text-right">
+              <input
+                type="number"
+                className={`${COLORS.inputNum}`}
+                value={r.gst_percent}
+                onChange={(e) => onRow(i, "gst_percent", e.target.value)}
+              />
+            </td>
+
+            <td className="px-2 py-1 border text-right">
+              <span className={COLORS.badge}>{Number(gstAmt).toFixed(3)}</span>
+            </td>
+
+            <td className="px-2 py-1 border text-right">
+              <span className={COLORS.badge}>{Number(finalAmt).toFixed(3)}</span>
+            </td>
+
+            <td className="px-2 py-1 border text-center">
+              <button
+                className="h-8 w-8 grid place-items-center rounded-full bg-red-100 text-red-600 hover:bg-red-200"
+                onClick={() => removeRow(i)}
+                title="Remove"
+              >
+                ×
+              </button>
+            </td>
+          </tr>
+        );
+      })}
+      {/* Totals row */}
+      <tr className="bg-gray-100">
+        <td className="px-2 py-2 border" colSpan={5}>
+          Totals
+        </td>
+        <td className="px-2 py-2 border text-right">
+          <span className={COLORS.badge}>{Number(rows.reduce((a,r)=>a+((Number(r.qty)||0)*(Number(r.rate)||0)),0)).toFixed(3)}</span>
+        </td>
+        <td className="px-2 py-2 border text-center">—</td>
+        <td className="px-2 py-2 border text-center">—</td>
+        <td className="px-2 py-2 border text-right">
+          <span className={COLORS.badge}>{Number(rows.reduce((a,r)=>{
+            const base=(Number(r.qty)||0)*(Number(r.rate)||0);
+            const per=Number(r.per_size_disc||0);
+            const pct=((Number(r.rate)||0)*(Number(r.d1_percent)||0))/100*(Number(r.qty)||0);
+            return a+(per+pct);
+          },0)).toFixed(3)}</span>
+        </td>
+        <td className="px-2 py-2 border text-center">—</td>
+        <td className="px-2 py-2 border text-right">
+          <span className={COLORS.badge}>{Number(rows.reduce((a,r)=>{
+            const base=(Number(r.qty)||0)*(Number(r.rate)||0);
+            const per=Number(r.per_size_disc||0);
+            const pct=((Number(r.rate)||0)*(Number(r.d1_percent)||0))/100*(Number(r.qty)||0);
+            const taxable=Math.max(base-(per+pct),0);
+            const gstAmt=(taxable*(Number(r.gst_percent)||0))/100;
+            return a+gstAmt;
+          },0)).toFixed(3)}</span>
+        </td>
+        <td className="px-2 py-2 border text-right">
+          <span className={COLORS.badge}>{Number(rows.reduce((a,r)=>{
+            const base=(Number(r.qty)||0)*(Number(r.rate)||0);
+            const per=Number(r.per_size_disc||0);
+            const pct=((Number(r.rate)||0)*(Number(r.d1_percent)||0))/100*(Number(r.qty)||0);
+            const taxable=Math.max(base-(per+pct),0);
+            const gstAmt=(taxable*(Number(r.gst_percent)||0))/100;
+            return a+taxable+gstAmt;
+          },0)).toFixed(3)}</span>
+        </td>
+        <td className="px-2 py-2 border"></td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr>
+        <td className="px-2 py-1 border" colSpan={13}>
+          <button className="px-2 py-1 bg-gray-200 rounded text-xs" onClick={addRow} type="button">
+            Add Row
+          </button>
+        </td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
 
       <div className="mt-6 flex gap-2">
         <button type="submit" disabled={loading || !isFormValid} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60">

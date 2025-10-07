@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   optimizeDeps: {
-     cacheDir: './.vite-cache',
+    cacheDir: './.vite-cache',
     include: [
       "react",
       "react-dom",
@@ -21,5 +21,12 @@ export default defineConfig({
     watch: {
       usePolling: true,
     },
+  },
+  // 🚀 Added these lines to stop LightningCSS crash on Vercel
+  css: {
+    transformer: 'postcss',
+  },
+  build: {
+    cssMinify: false, // disable lightningcss to fix linux build issue
   },
 });
