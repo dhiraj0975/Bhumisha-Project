@@ -1,20 +1,26 @@
-import React from "react";
+import React, { useState } from "react";
 import PurchaseForm from "./PurchaseForm";
 import PurchaseList from "./PurchaseList";
 
 export default function Purchases() {
+  const [reloadFlag, setReloadFlag] = useState(0);
+
+  const handlePurchaseSaved = () => {
+    setReloadFlag((prev) => prev + 1);
+  };
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <h1 className="text-2xl font-bold mb-6">Manage Purchases</h1>
       
       {/* Purchase Form */}
       <div className="mb-10">
-        <PurchaseForm />
+        <PurchaseForm onSaved={handlePurchaseSaved} />
       </div>
 
       {/* Purchase List */}
       <div>
-        <PurchaseList />
+        <PurchaseList reload={reloadFlag} />
       </div>
     </div>
   );
