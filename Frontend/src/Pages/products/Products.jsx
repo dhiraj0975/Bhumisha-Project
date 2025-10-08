@@ -557,39 +557,42 @@ export default function Products() {
   }, [dispatch]);
 
   // Auto Calculation
-  useEffect(() => {
-    const purchase = Number(formData.purchase_rate) || 0;
-    const transport = Number(formData.transport_charge) || 10;
-    const local = Number(formData.local_transport) || 0.5;
-    const packaging = Number(formData.packaging_cost) || 1.5;
+// In Products component: replace the Auto Calculation effect with GST-excluded computations
+useEffect(() => {
+  const purchase = Number(formData.purchase_rate) || 0;
+  const transport = Number(formData.transport_charge) || 10;
+  const local = Number(formData.local_transport) || 0.5;
+  const packaging = Number(formData.packaging_cost) || 1.5;
 
-    const value = purchase + transport + local + packaging;
+  // Value = purchase + transport + local + packaging
+  const value = purchase + transport + local + packaging;
 
-    const { discount_30, discount_25 } = getDiscounts(purchase);
+  // Discounts from Purchase Rate
+  const { discount_30, discount_25 } = getDiscounts(purchase);
 
-    const salesRate = value * 1.5;
+  // Total Sales Rate (without GST)
+  const salesRate = value * 1.5;
 
-    const gstPercent = Number(formData.gst) || 0;
-    const gstAmount = (salesRate * gstPercent) / 100;
+  // DO NOT calculate gstAmount here; keep gst as entered only
+  setFormData((prev) => ({
+    ...prev,
+    value,
+    discount_30,
+    discount_25,
+    total: salesRate,     // keep total as salesRate only (no GST added here)
+    // gst stays whatever user typed in input
+    // gstAmount not auto-calculated; if present in state, leave as-is or set to 0
+    gstAmount: prev.gstAmount ?? 0,
+  }));
+// eslint-disable-next-line react-hooks/exhaustive-deps
+}, [
+  formData.purchase_rate,
+  formData.transport_charge,
+  formData.local_transport,
+  formData.packaging_cost,
+  // exclude formData.gst from deps so user-entered GST won't trigger recalculation
+]);
 
-    const finalTotal = salesRate + gstAmount;
-
-    setFormData((prev) => ({
-      ...prev,
-      value,
-      discount_30,
-      discount_25,
-      total: finalTotal,
-      gst: gstPercent,
-      gstAmount,
-    }));
-  }, [
-    formData.purchase_rate,
-    formData.transport_charge,
-    formData.local_transport,
-    formData.packaging_cost,
-    formData.gst,
-  ]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -798,13 +801,14 @@ export default function Products() {
               {/* GST */}
               <div className="flex flex-col">
                 <label className="mb-2 text-sm font-semibold text-gray-600">GST %</label>
-                <input
-                  type="number"
-                  name="gst"
-                  value={formData.gst || ""}
-                  onChange={handleChange}
-                  className="border p-3 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500"
-                />
+<input
+  type="number"
+  name="gst"
+  value={formData.gst || ""}
+  onChange={handleChange}
+  className="border p-3 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500"
+/>
+
               </div>
 
               {/* ReadOnly Fields */}

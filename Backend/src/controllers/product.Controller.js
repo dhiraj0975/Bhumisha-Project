@@ -39,63 +39,45 @@
 // module.exports = { createProduct, getProducts, getProductById, updateProduct, deleteProduct };
 
 
-
 // controllers/product.Controller.js
 const Product = require("../models/productsModel");
 
 const validate = (body, isCreate = true) => {
   const errors = [];
-
-  // Requireds on create
   if (isCreate && (body.category_id === undefined || body.category_id === "")) {
     errors.push("category_id is required");
   }
   if (isCreate && (body.product_name === undefined || String(body.product_name).trim() === "")) {
     errors.push("product_name is required");
   }
-
-  // Optional constraints
   if (body.size !== undefined && String(body.size).length > 64) {
     errors.push("size too long (max 64)");
   }
-
-  // Numeric checks
   const numericFields = [
-    "purchase_rate",
-    "transport_charge",
-    "local_transport",
-    "packaging_cost",
-    "packing_weight",
-    "value",
-    "discount_30",
-    "discount_25",
-    "discount_50",
-    "total",
-    "gst"
+    "purchase_rate","transport_charge","local_transport","packaging_cost",
+    "packing_weight","value","discount_30","discount_25","discount_50","total","gst"
   ];
   numericFields.forEach((f) => {
     if (body[f] !== undefined && body[f] !== null && body[f] !== "") {
       if (isNaN(Number(body[f]))) errors.push(`${f} must be a number`);
     }
   });
-
   return errors;
 };
 
 const safeErr = (err) => ({ error: err?.sqlMessage || err?.message || String(err) });
 
-// Create
+// Create (same)
 const createProduct = (req, res) => {
   const errors = validate(req.body, true);
   if (errors.length) return res.status(400).json({ errors });
-
   Product.create(req.body, (err, result) => {
     if (err) return res.status(500).json(safeErr(err));
     return res.status(201).json({ message: "Product created", id: result.insertId });
   });
 };
 
-// List all
+// List (same)
 const getProducts = (req, res) => {
   Product.getAll((err, results) => {
     if (err) return res.status(500).json(safeErr(err));
@@ -103,11 +85,10 @@ const getProducts = (req, res) => {
   });
 };
 
-// Get one
+// Get one (same)
 const getProductById = (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: "invalid id" });
-
   Product.getById(id, (err, result) => {
     if (err) return res.status(500).json(safeErr(err));
     if (!Array.isArray(result) || result.length === 0) {
@@ -117,29 +98,48 @@ const getProductById = (req, res) => {
   });
 };
 
-// Update
+// Update (sanitizer + whitelist + partial)
 const updateProduct = (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: "invalid id" });
 
-  const errors = validate(req.body, false);
+  // 1) Drop empty strings so they don't overwrite
+  const clean = {};
+  Object.entries(req.body || {}).forEach(([k, v]) => {
+    if (v !== "") clean[k] = v;
+  });
+
+  // 2) Whitelist only known fields
+  const allowed = new Set([
+    "category_id","product_name","size","purchase_rate","transport_charge",
+    "local_transport","packaging_cost","packing_weight","hsn_code","value",
+    "discount_30","discount_25","discount_50","total","gst"
+  ]);
+  const filtered = {};
+  Object.keys(clean).forEach((k) => {
+    if (allowed.has(k)) filtered[k] = clean[k];
+  });
+
+  const errors = validate(filtered, false);
   if (errors.length) return res.status(400).json({ errors });
 
-  Product.update(id, req.body, (err, dbRes) => {
+  // 3) If nothing to update, short-circuit
+  if (!Object.keys(filtered).length) {
+    return res.json({ message: "Nothing to update" });
+  }
+
+  Product.update(id, filtered, (err) => {
     if (err) return res.status(500).json(safeErr(err));
-    // optional: check affectedRows if needed using dbRes
     return res.json({ message: "Product updated" });
   });
 };
 
-// Delete
+// Delete (same)
 const deleteProduct = (req, res) => {
   const id = Number(req.params.id);
   if (!id) return res.status(400).json({ error: "invalid id" });
-
-  Product.delete(id, (err, dbRes) => {
+  Product.delete(id, (err) => {
     if (err) return res.status(500).json(safeErr(err));
-    // optional: if (dbRes.affectedRows === 0) return res.status(404).json({ message: "Product not found" });
     return res.json({ message: "Product deleted" });
   });
 };
