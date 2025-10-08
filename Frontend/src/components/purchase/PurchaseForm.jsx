@@ -328,7 +328,7 @@ const PurchaseForm = ({ onSaved }) => {
                 "Amount",
                 "Disc %",
                 "Per Qty Disc",
-                "Disc Amt",
+                "Total Disc",
                 "GST%",
                 "GST Amt",
                 "FinalAmt",
