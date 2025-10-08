@@ -106,7 +106,7 @@ export default function SalesDetailsPanel({ id, onClose }) {
           {/* Totals */}
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-3 bg-gray-50 rounded">Taxable: {fx2(totals.taxable)}</div>
-            <div className="p-3 bg-gray-50 rounded">GST: {fx2(totals.gst)}</div>
+            <div className="p-3 bg-gray-50 rounded">GST Amt: {fx2(totals.gst)}</div>
             <div className="p-3 bg-gray-50 rounded">Total: {fx2(totals.net)}</div>
           </div>
         </>
