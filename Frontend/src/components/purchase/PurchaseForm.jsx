@@ -319,7 +319,7 @@ const PurchaseForm = ({ onSaved }) => {
         <table className="w-full text-sm border">
           <thead className="bg-green-700 text-white">
             <tr>
-              {[ 
+              {[  
                 "SI",
                 "Item Name",
                 "HSNCode",
