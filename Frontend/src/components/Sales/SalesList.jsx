@@ -81,10 +81,10 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
             <thead>
               <tr className="bg-gray-100">
                 <th className="p-2 border">Sl.No.</th>
-                <th className="p-2 border">Bill No</th>
                 <th className="p-2 border">Customer</th>
+                <th className="p-2 border">Bill No</th>    
                 <th className="p-2 border">Date</th>
-                <th className="p-2 border">Customer</th>
+                {/* <th className="p-2 border">Customer</th> */}
                 <th className="p-2 border">Amount</th>
                 <th className="p-2 border">Payment</th>
                 <th className="p-2 border">Method</th>

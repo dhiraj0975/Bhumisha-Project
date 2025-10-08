@@ -274,7 +274,7 @@ const PurchaseForm = ({ onSaved }) => {
         </div>
 
         <div className="flex flex-col">
-          <label className="text-xs">SUPPLIER</label>
+          <label className="text-xs">Vendor</label>
           <select
             className="border rounded p-1"
             name="vendor_id"
@@ -323,12 +323,12 @@ const PurchaseForm = ({ onSaved }) => {
                 "SI",
                 "Item Name",
                 "HSNCode",
-                "size",
+                "QTY",
                 "Rate",
                 "Amount",
                 "Disc %",
-                "per size Disc",
-                "Disc",
+                "Per Qty Disc",
+                "Disc Amt",
                 "GST%",
                 "GST Amt",
                 "FinalAmt",

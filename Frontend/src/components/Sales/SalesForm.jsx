@@ -241,7 +241,7 @@ export default function SalesForm({ sale, onSubmitted }) {
 
 <div className="grid grid-cols-4 gap-4">
   {/* Row 1 */}
-  <div className="flex flex-col">
+  {/* <div className="flex flex-col">
     <label htmlFor="sale_no" className="text-sm text-gray-600 mb-1">Sale No.</label>
     <input
       id="sale_no"
@@ -250,7 +250,7 @@ export default function SalesForm({ sale, onSubmitted }) {
       value={header.sale_no}
       onChange={(e) => setHeader((p) => ({ ...p, sale_no: e.target.value }))}
     />
-  </div>
+  </div> */}
 
   <div className="flex flex-col">
     <label htmlFor="date" className="text-sm text-gray-600 mb-1">Date</label>
@@ -353,12 +353,12 @@ export default function SalesForm({ sale, onSubmitted }) {
         <th className="px-2 py-2 border text-center w-10">Sl</th>
         <th className="px-2 py-2 border text-left">Item Name</th>
         <th className="px-2 py-2 border text-left">HSNCode</th>
-        <th className="px-2 py-2 border text-center w-16">size</th>
+        <th className="px-2 py-2 border text-center w-16">QTY</th>
         <th className="px-2 py-2 border text-right">Rate</th>
         <th className="px-2 py-2 border text-right">Amount</th>
         <th className="px-2 py-2 border text-right">Disc %</th>
-        <th className="px-2 py-2 border text-right">per size Disc</th>
-        <th className="px-2 py-2 border text-right">Disc</th>
+        <th className="px-2 py-2 border text-right">Per Qty Disc</th>
+        <th className="px-2 py-2 border text-right">Total Disc</th>
         <th className="px-2 py-2 border text-right">GST%</th>
         <th className="px-2 py-2 border text-right">GST Amt</th>
         <th className="px-2 py-2 border text-right">FinalAmt</th>
