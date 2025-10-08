@@ -734,7 +734,7 @@ export default function Products() {
                   className="border p-3 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-
+ 
               {/* Purchase Rate */}
               <div className="flex flex-col">
                 <label className="mb-2 text-sm font-semibold text-gray-600">Purchase Rate</label>
