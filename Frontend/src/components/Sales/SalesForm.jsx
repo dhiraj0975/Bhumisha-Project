@@ -991,7 +991,7 @@ export default function SalesForm({ sale, onSubmitted }) {
       const perQtyDisc = perUnitDisc * qty;
       return Number(perQtyDisc).toFixed(3);
 
-
+ 
     })()}
   />
 </td>
