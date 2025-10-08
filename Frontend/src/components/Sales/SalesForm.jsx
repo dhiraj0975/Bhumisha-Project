@@ -584,3 +584,4 @@ export default function SalesForm({ sale, onSubmitted }) {
     </form>
   );
 }
+
