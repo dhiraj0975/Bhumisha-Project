@@ -92,63 +92,85 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
                 <th className="p-2 border">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {filtered.map((r, idx) => (
-                <tr key={r.id} className="hover:bg-gray-50">
-                  <td className="p-2 border">{idx + 1}</td>
-                   <td className="p-2 border">
-                    <button
-                      type="button"
-                      onClick={() => onDetails?.(r.id)}
-                      className="text-blue-600 underline hover:text-blue-700"
-                      title="View sale details"
-                    >
-                      {r.customer_name}
-                    </button>
-                  </td>
-                  <td className="p-2 border">{r.bill_no}</td>
-                                   
-                  <td className="p-2 border">{r.bill_date}</td>
+<tbody>
+  {filtered.map((r, idx) => (
+    <tr key={r.id} className="hover:bg-gray-50">
+      <td className="p-2 border">{idx + 1}</td>
 
-                  <td className="p-2 border">{Number(r.total_amount || 0).toFixed(2)}</td>
-                  <td className="p-2 border">
-                    <span
-                      className={`px-3 py-1 rounded-full text-white ${
-                        String(r.payment_status).toLowerCase() === "paid"
-                          ? "bg-green-500"
-                          : String(r.payment_status).toLowerCase() === "partial"
-                          ? "bg-orange-500"
-                          : "bg-gray-500"
-                      }`}
-                    >
-                      {r.payment_status}
-                    </span>
-                  </td>
-                  <td className="p-2 border">{r.payment_method}</td>
-                  <td className="p-2 border">{r.status}</td>
-                  <td className="p-2 border">
-                    <div className="flex gap-2">
-                      <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={() => onEditClick(r)}>
-                        Edit
-                      </button>
-                      <button className="px-3 py-1 bg-indigo-600 text-white rounded" onClick={() => onDetails?.(r.id)}>
-                        Details
-                      </button>
-                      <button className="px-3 py-1 bg-red-600 text-white rounded" onClick={() => onDelete(r.id)}>
-                        Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {!filtered.length && (
-                <tr>
-                  <td className="p-4 text-center" colSpan={9}>
-                    No sales found
-                  </td>
-                </tr>
-              )}
-            </tbody>
+      {/* Customer name: plain text (no blue, no underline, no click) */}
+      <td className="p-2 border">
+        <span className="text-gray-900">{r.customer_name}</span>
+      </td>
+
+      {/* Bill no.: clickable blue text with underline, triggers details */}
+      <td className="p-2 border">
+        <button
+          type="button"
+          onClick={() => onDetails?.(r.id)}
+          className="text-blue-600 underline hover:text-blue-700"
+          title="View sale details"
+        >
+          {r.bill_no}
+        </button>
+      </td>
+
+      <td className="p-2 border">{r.bill_date}</td>
+
+      <td className="p-2 border">
+        {Number(r.total_amount || 0).toFixed(2)}
+      </td>
+
+      <td className="p-2 border">
+        <span
+          className={`px-3 py-1 rounded-full text-white ${
+            String(r.payment_status).toLowerCase() === "paid"
+              ? "bg-green-500"
+              : String(r.payment_status).toLowerCase() === "partial"
+              ? "bg-orange-500"
+              : "bg-gray-500"
+          }`}
+        >
+          {r.payment_status}
+        </span>
+      </td>
+
+      <td className="p-2 border">{r.payment_method}</td>
+      <td className="p-2 border">{r.status}</td>
+
+      <td className="p-2 border">
+        <div className="flex gap-2">
+          <button
+            className="px-3 py-1 bg-blue-600 text-white rounded"
+            onClick={() => onEditClick(r)}
+          >
+            Edit
+          </button>
+          <button
+            className="px-3 py-1 bg-indigo-600 text-white rounded"
+            onClick={() => onDetails?.(r.id)}
+          >
+            Details
+          </button>
+          <button
+            className="px-3 py-1 bg-red-600 text-white rounded"
+            onClick={() => onDelete(r.id)}
+          >
+            Delete
+          </button>
+        </div>
+      </td>
+    </tr>
+  ))}
+  {!filtered.length && (
+    <tr>
+      <td className="p-4 text-center" colSpan={9}>
+        No sales found
+      </td>
+    </tr>
+  )}
+</tbody>
+ 
+ 
           </table>
         </div>
       )}

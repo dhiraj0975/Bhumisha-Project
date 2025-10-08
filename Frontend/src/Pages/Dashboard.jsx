@@ -38,7 +38,7 @@ export default function Dashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg text-white flex items-center gap-4">
+        <div className="p-6 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 shadow-lg text-white flex items-center gap-4">
           <span className="text-4xl leading-none">🧑‍🤝‍🧑</span>
           <div>
             <p className="text-sm opacity-80">Total Users</p>
