@@ -7,7 +7,7 @@ const api = axios.create({
     "Content-Type": "application/json",
     Accept: "application/json",
   },
-});
+}); 
 
 const salesAPI = {
   getAll: () => api.get("/sales"),
