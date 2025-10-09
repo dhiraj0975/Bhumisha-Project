@@ -2,33 +2,26 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { toast } from "react-toastify";
 import vendorAPI from "../../axios/vendorsAPI.js";
 
-// ✅ Fetch vendors
 export const fetchVendors = createAsyncThunk("vendor/fetchVendors", async () => {
   const res = await vendorAPI.getAll();
   return res.data;
 });
 
-// ✅ Add vendor
 export const addVendor = createAsyncThunk(
   "vendor/addVendor",
   async (vendor, { rejectWithValue }) => {
     try {
-      // Backend expects vendor fields only, bank fields separate
-      const vendorPayload = {
+      const res = await vendorAPI.create({
         vendor_name: vendor.vendor_name,
         firm_name: vendor.firm_name,
         gst_no: vendor.gst_no,
         address: vendor.address,
         contact_number: vendor.contact_number,
         status: vendor.status || "active",
-      };
-      const bankPayload = vendor.bank || {};
-
-// vendorThunks.js me
-const res = await vendorAPI.create({
-  ...vendorPayload,
-  bank: bankPayload
-});
+        balance: vendor.balance ?? undefined,
+        min_balance: vendor.min_balance ?? undefined,
+        bank: vendor.bank || {}
+      });
       toast.success("Vendor successfully registered! 🎉");
       return res.data;
     } catch (error) {
@@ -38,23 +31,18 @@ const res = await vendorAPI.create({
   }
 );
 
-
-// ✅ Update vendor
 export const updateVendor = createAsyncThunk(
   "vendor/updateVendor",
   async ({ id, vendor }, { rejectWithValue }) => {
     try {
-     const res = await vendorAPI.update(id, {
-  ...vendor,
-  bank: vendor.bank
-});
+      const res = await vendorAPI.update(id, {
+        ...vendor,
+        balance: vendor.balance ?? undefined,
+        min_balance: vendor.min_balance ?? undefined,
+        bank: vendor.bank
+      });
       toast.success("Vendor details updated successfully! ✅");
-
-      // ✅ Agar backend vendor return karta hai
-      return res.data.vendor || res.data; 
-
-      // Agar backend sirf message bhej raha hai to manually return karo
-      // return { ...vendor, id };
+      return res.data.vendor || res.data;
     } catch (error) {
       toast.error("Failed to update vendor details. Please try again.");
       return rejectWithValue(error.response?.data || error.message);
@@ -62,9 +50,6 @@ export const updateVendor = createAsyncThunk(
   }
 );
 
-
-
-// ✅ Delete vendor
 export const deleteVendor = createAsyncThunk("vendor/deleteVendor", async (id, { rejectWithValue }) => {
   try {
     await vendorAPI.remove(id);
@@ -76,7 +61,6 @@ export const deleteVendor = createAsyncThunk("vendor/deleteVendor", async (id, {
   }
 });
 
-// ✅ Update vendor status
 export const updateVendorStatus = createAsyncThunk(
   "vendor/updateVendorStatus",
   async ({ id, status }, { rejectWithValue }) => {

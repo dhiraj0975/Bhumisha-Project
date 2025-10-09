@@ -85,9 +85,14 @@ export const fetchFarmers = createAsyncThunk("farmers/fetchFarmers", async () =>
   return res.data;
 });
 
+// addFarmer
 export const addFarmer = createAsyncThunk("farmers/addFarmer", async (data, { rejectWithValue }) => {
   try {
-    const res = await farmerAPI.create(data);
+    const res = await farmerAPI.create({
+      ...data,
+      balance: data.balance ?? undefined,
+      min_balance: data.min_balance ?? undefined,
+    });
     toast.success("Farmer successfully registered! 🎉");
     return res.data;
   } catch (error) {
@@ -96,16 +101,30 @@ export const addFarmer = createAsyncThunk("farmers/addFarmer", async (data, { re
   }
 });
 
-export const updateFarmer = createAsyncThunk("farmers/updateFarmer", async ({ id, data }, { rejectWithValue }) => {
-  try {
-    const res = await farmerAPI.update(id, data);
-    toast.success("Farmer details updated successfully! ✅");
-    return res.data;
-  } catch (error) {
-    toast.error("Failed to update farmer details. Please try again.");
-    return rejectWithValue(error.response?.data || error.message);
+// updateFarmer
+export const updateFarmer = createAsyncThunk(
+  "farmers/updateFarmer",
+  async ({ id, data }, { rejectWithValue }) => {
+    try {
+      const res = await farmerAPI.update(id, {
+        ...data,
+        // numbers already handled in your code
+        balance: data.balance ?? undefined,
+        min_balance: data.min_balance ?? undefined,
+      });
+      // Optional console check
+      // console.log("updateFarmer OK", res.status, res.data);
+      toast.success("Farmer details updated successfully! ✅");
+      return res.data;
+    } catch (error) {
+      // console.error("updateFarmer ERR", error.response?.status, error.response?.data);
+      toast.error("Failed to update farmer details. Please try again.");
+      return rejectWithValue(error.response?.data || error.message);
+    }
   }
-});
+);
+
+
 
 export const deleteFarmer = createAsyncThunk("farmers/deleteFarmer", async (id, { rejectWithValue }) => {
   try {
@@ -146,21 +165,39 @@ const farmerSlice = createSlice({
       .addCase(fetchFarmers.pending, (state) => {
         state.loading = true;
       })
-      .addCase(fetchFarmers.fulfilled, (state, action) => {
-        state.loading = false;
-        state.list = action.payload;
-      })
+.addCase(fetchFarmers.fulfilled, (state, action) => {
+  state.loading = false;
+  state.list = (action.payload || []).map(f => ({
+    ...f,
+    balance: Number(f.balance ?? 0),
+    min_balance: Number(f.min_balance ?? 5000),
+  }));
+})
       .addCase(fetchFarmers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
       })
-      .addCase(addFarmer.fulfilled, (state, action) => {
-        state.list.push(action.payload);
-      })
-      .addCase(updateFarmer.fulfilled, (state, action) => {
-        const index = state.list.findIndex((f) => f.id === action.payload.id);
-        if (index !== -1) state.list[index] = action.payload;
-      })
+.addCase(addFarmer.fulfilled, (state, action) => {
+  const f = action.payload?.farmer || action.payload || {};
+  const normalized = {
+    ...f,
+    balance: Number(f.balance ?? 0),
+    min_balance: Number(f.min_balance ?? 5000),
+  };
+  state.list.push(normalized);
+})
+.addCase(updateFarmer.fulfilled, (state, action) => {
+  const incoming = action.payload?.farmer || action.payload || {};
+  const idx = state.list.findIndex((f) => f.id === incoming.id);
+  if (idx !== -1) {
+    state.list[idx] = {
+      ...state.list[idx],
+      ...incoming,
+      balance: Number(incoming.balance ?? state.list[idx].balance ?? 0),
+      min_balance: Number(incoming.min_balance ?? state.list[idx].min_balance ?? 5000),
+    };
+  }
+})
       .addCase(deleteFarmer.fulfilled, (state, action) => {
         state.list = state.list.filter((f) => f.id !== action.payload);
       })

@@ -16,71 +16,67 @@ const VendorModel = require("../models/vendorModel");
 
 const createVendor = (req, res) => {
   try {
-    const { vendor_name, firm_name, gst_no, address, contact_number, bank, status } = req.body;
-    console.log("Received vendor data:", req.body); // Debug log
+    const {
+      vendor_name, firm_name, gst_no, address, contact_number,
+      bank, status, balance, min_balance
+    } = req.body;
 
     VendorModel.createVendor(
-      {vendor_name, firm_name, gst_no, address, contact_number, status },
+      {
+        vendor_name, firm_name, gst_no, address, contact_number,
+        status, balance, min_balance
+      },
       bank,
       (err, result) => {
-        if (err) {
-          console.error("Error in createVendor:", err); // Debug log
-          return res.status(500).json({ error: err.message });
-        }
-        
-        console.log("Vendor created with ID:", result.insertId); // Debug log
-        
-        // Get the newly created vendor with bank details
+        if (err) return res.status(500).json({ error: err.message });
+
         VendorModel.getVendorById(result.insertId, (err, vendor) => {
           if (err) {
-            console.error("Error fetching created vendor:", err); // Debug log
-            // Even if we can't fetch the vendor details, we still return success
-            // with the basic information we have
             return res.status(201).json({
               message: "Vendor added successfully!",
               vendor: {
                 id: result.insertId,
-                vendor_name,
-                firm_name,
-                gst_no,
-                address,
-                contact_number,
+                vendor_name, firm_name, gst_no, address, contact_number,
                 status,
+                balance: balance ?? undefined,
+                min_balance: min_balance ?? undefined,
                 bank
               }
             });
           }
-          
-          // If vendor is null, still return success with basic info
-          if (!vendor) {
-            console.log("Vendor not found after creation, using basic info");
-            return res.status(201).json({
-              message: "Vendor added successfully!",
-              vendor: {
-                id: result.insertId,
-                vendor_name,
-                firm_name,
-                gst_no,
-                address,
-                contact_number,
-                status,
-                bank
-              }
-            });
-          }
-          
-          console.log("Vendor created successfully:", vendor); // Debug log
-          res.status(201).json({
-            message: "Vendor added successfully!",
-            vendor: vendor
-          });
+          res.status(201).json({ message: "Vendor added successfully!", vendor });
         });
       }
     );
   } catch (error) {
-    console.error("Unexpected error in createVendor:", error); // Debug log
     res.status(500).json({ error: error.message });
   }
+};
+
+// =============== Update ==================
+
+const updateVendor = (req, res) => {
+  const vendor_id = req.params.id;
+  const {
+    vendor_name, firm_name, gst_no, address, contact_number,
+    bank, status, balance, min_balance
+  } = req.body;
+
+  VendorModel.updateVendor(
+    vendor_id,
+    { vendor_name, firm_name, gst_no, address, contact_number, status, balance, min_balance },
+    bank,
+    (err) => {
+      if (err) return res.status(500).json(err);
+      VendorModel.getVendorById(vendor_id, (err, vendor) => {
+        if (err) return res.status(500).json(err);
+        res.status(200).json({
+          message: "Vendor updated successfully!",
+          vendor: { ...vendor, bank: bank || {} }
+        });
+      });
+    }
+  );
 };
 // =============== Read ==================
 const getVendors = (req, res) => {
@@ -91,33 +87,33 @@ const getVendors = (req, res) => {
 };
 
 // =============== Update ==================
-const updateVendor = (req, res) => {
-  const vendor_id = req.params.id;
-  const { vendor_name, firm_name, gst_no, address, contact_number, bank, status } = req.body;
+// const updateVendor = (req, res) => {
+//   const vendor_id = req.params.id;
+//   const { vendor_name, firm_name, gst_no, address, contact_number, bank, status } = req.body;
 
-  VendorModel.updateVendor(
-    vendor_id,
-    { vendor_name, firm_name, gst_no, address, contact_number, status },
-    bank,
-    (err) => {
-      if (err) return res.status(500).json(err);
+//   VendorModel.updateVendor(
+//     vendor_id,
+//     { vendor_name, firm_name, gst_no, address, contact_number, status },
+//     bank,
+//     (err) => {
+//       if (err) return res.status(500).json(err);
 
-      // ✅ Update ke baad vendor with bank fetch karo
-      VendorModel.getVendorById(vendor_id, (err, vendor) => {
-        if (err) return res.status(500).json(err);
+//       // ✅ Update ke baad vendor with bank fetch karo
+//       VendorModel.getVendorById(vendor_id, (err, vendor) => {
+//         if (err) return res.status(500).json(err);
 
-       res.status(200).json({
-  message: "Vendor updated successfully!",
-  vendor: {
-    ...vendor,
-    bank: bank || {}
-  }
-});
+//        res.status(200).json({
+//   message: "Vendor updated successfully!",
+//   vendor: {
+//     ...vendor,
+//     bank: bank || {}
+//   }
+// });
 
-      });
-    }
-  );
-};
+//       });
+//     }
+//   );
+// };
 
 
 // =============== Delete ==================

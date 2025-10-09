@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { toast } from "react-toastify";
+// src/pages/sales/SalesForm.jsx
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import salesAPI from "../../axios/salesAPI";
 import customersAPI from "../../axios/customerAPI";
@@ -17,7 +17,6 @@ const getMarginPercentByQty = (qty) => {
 
 const getRowMarginPercent = (r) => getMarginPercentByQty(r.qty || 0);
 
-
 const parseGst = (v) => {
   if (v == null) return 0;
   const s = String(v).replace("%", "");
@@ -31,7 +30,8 @@ export default function SalesForm({ sale, onSubmitted }) {
   const [loading, setLoading] = useState(false);
   const isEditMode = Boolean(sale);
 
-  const [useCostMargin, setUseCostMargin] = useState(true);
+  // Always-on auto margin (locked)
+  const [useCostMargin] = useState(true);
 
   const [header, setHeader] = useState({
     sale_no: "",
@@ -44,11 +44,66 @@ export default function SalesForm({ sale, onSubmitted }) {
     payment_status: "Unpaid",
     payment_method: "Cash",
     status: "Active",
+    old_remaining: 0,   // NEW
+    cash_received: 0,   // NEW
   });
 
   const [rows, setRows] = useState([
-    { product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, cost_rate: 0, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS", manualRate: false },
+    {
+      product_id: "",
+      item_name: "",
+      hsn_code: "",
+      available: 0,
+      qty: 1,
+      cost_rate: 0,
+      rate: 0,
+      d1_percent: 0,
+      per_size_disc: 0,
+      gst_percent: 0,
+      unit: "PCS",
+      manualRate: false,
+    },
   ]);
+
+  // Error state for styling
+  const [errors, setErrors] = useState({
+    header: {},
+    rows: {},
+  });
+
+  // Header refs for focus
+  const headerRefs = {
+    date: useRef(null),
+    customer_id: useRef(null),
+    sale_no: useRef(null),
+    address: useRef(null),
+    mobile_no: useRef(null),
+    gst_no: useRef(null),
+    payment_status: useRef(null),
+    payment_method: useRef(null),
+    cash_received: useRef(null),
+  };
+
+  // Row refs
+  const makeRowRefs = () => ({
+    product_id: React.createRef(),
+    qty: React.createRef(),
+    rate: React.createRef(),
+    gst_percent: React.createRef(),
+  });
+  const [rowRefs, setRowRefs] = useState([makeRowRefs()]);
+  const syncRowRefs = (len) => {
+    setRowRefs((prev) => {
+      const next = [...prev];
+      while (next.length < len) next.push(makeRowRefs());
+      if (next.length > len) next.length = len;
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    syncRowRefs(rows.length);
+  }, [rows.length]);
 
   useEffect(() => {
     const init = async () => {
@@ -72,7 +127,8 @@ export default function SalesForm({ sale, onSubmitted }) {
         if (isEditMode && sale) {
           const normalizedDate = sale.bill_date ? new Date(sale.bill_date).toISOString().split("T")[0] : "";
           const selectedCustomer = allCustomers.find((c) => Number(c.id) === Number(sale.customer_id));
-          setHeader({
+          setHeader((prev) => ({
+            ...prev,
             sale_no: sale.bill_no || "",
             date: normalizedDate,
             customer_id: sale.customer_id || "",
@@ -83,7 +139,10 @@ export default function SalesForm({ sale, onSubmitted }) {
             payment_status: sale.payment_status || "Unpaid",
             payment_method: sale.payment_method || "Cash",
             status: sale.status || "Active",
-          });
+            // old_remaining will be fetched when user re-selects customer if needed
+            old_remaining: 0,
+            cash_received: 0,
+          }));
 
           const mapped = (sale.items || []).map((r) => {
             const product = normalized.find((p) => Number(p.id) === Number(r.product_id));
@@ -102,7 +161,26 @@ export default function SalesForm({ sale, onSubmitted }) {
               unit: r.unit || "PCS",
             };
           });
-          setRows(mapped.length ? mapped : [{ product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, cost_rate: 0, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS", manualRate: false }]);
+          setRows(
+            mapped.length
+              ? mapped
+              : [
+                  {
+                    product_id: "",
+                    item_name: "",
+                    hsn_code: "",
+                    available: 0,
+                    qty: 1,
+                    cost_rate: 0,
+                    rate: 0,
+                    d1_percent: 0,
+                    per_size_disc: 0,
+                    gst_percent: 0,
+                    unit: "PCS",
+                    manualRate: false,
+                  },
+                ]
+          );
         } else {
           const { data } = await salesAPI.getNewBillNo();
           setHeader((prev) => ({
@@ -112,6 +190,8 @@ export default function SalesForm({ sale, onSubmitted }) {
             payment_status: "Unpaid",
             payment_method: "Cash",
             status: "Active",
+            old_remaining: 0,
+            cash_received: 0,
           }));
         }
       } catch (e) {
@@ -123,7 +203,7 @@ export default function SalesForm({ sale, onSubmitted }) {
     init();
   }, [isEditMode, sale]);
 
-  const onHeader = (e) => {
+  const onHeader = async (e) => {
     let { name, value } = e.target;
     if (name === "customer_id") {
       const cid = parseInt(value || 0, 10);
@@ -135,9 +215,28 @@ export default function SalesForm({ sale, onSubmitted }) {
         mobile_no: selected?.phone || "",
         gst_no: selected?.gst_no || "",
       }));
+      setErrors((er) => ({ ...er, header: { ...er.header, customer_id: false } }));
+
+      if (cid) {
+        try {
+          const res = await customersAPI.getBalance(cid);
+          const prevDue = Number(res?.data?.previous_due || 0);
+          setHeader((p) => ({ ...p, old_remaining: prevDue, cash_received: 0 }));
+        } catch {
+          setHeader((p) => ({ ...p, old_remaining: 0, cash_received: 0 }));
+        }
+      } else {
+        setHeader((p) => ({ ...p, old_remaining: 0, cash_received: 0 }));
+      }
       return;
     }
+
+    if (name === "cash_received") {
+      value = value === "" ? "" : Number(value);
+    }
+
     setHeader((p) => ({ ...p, [name]: value }));
+    setErrors((er) => ({ ...er, header: { ...er.header, [name]: false } }));
   };
 
   const recomputeSellingRate = (row) => {
@@ -159,6 +258,15 @@ export default function SalesForm({ sale, onSubmitted }) {
       if (numeric.includes(field)) v = value === "" ? 0 : Number(value);
       next[i] = { ...next[i], [field]: v };
 
+      // clear row field error on change
+      setErrors((er) => ({
+        ...er,
+        rows: {
+          ...er.rows,
+          [i]: { ...(er.rows[i] || {}), [field]: false },
+        },
+      }));
+
       if (field === "product_id") {
         const product = products.find((p) => String(p.id) === String(value));
         next[i].item_name = product?.product_name || "";
@@ -176,15 +284,20 @@ export default function SalesForm({ sale, onSubmitted }) {
 
       if (field === "qty") {
         const avail = Number(next[i].available || 0);
-        const q = Number(next[i].qty || 0);
+        let q = Number(value || 0);
+
         if (q > avail) {
-          next[i].qty = avail;
+          q = avail;
           Swal.fire({ icon: "info", title: "Stock limit", text: "Qty limited to available stock" });
         } else if (q < 1) {
-          next[i].qty = 1;
+          q = 1;
         }
+
+        next[i].qty = q;
+
         if (useCostMargin && !next[i].manualRate) {
-          next[i].rate = recomputeSellingRate(next[i]);
+          const tmp = { ...next[i], qty: q };
+          next[i].rate = recomputeSellingRate(tmp);
         }
       }
 
@@ -200,6 +313,7 @@ export default function SalesForm({ sale, onSubmitted }) {
     });
   };
 
+  // Row math
   const calc = (r) => {
     const qty = Number(r.qty) || 0;
     const rate = Number(r.rate) || 0;
@@ -233,18 +347,75 @@ export default function SalesForm({ sale, onSubmitted }) {
     [rows]
   );
 
-  const isFormValid = useMemo(() => {
-    const headerValid = header.sale_no && header.customer_id && header.date;
-    const rowsValid = rows.every((r) => r.product_id && Number(r.qty) > 0 && Number(r.rate) > 0);
-    return Boolean(headerValid && rowsValid);
-  }, [header, rows]);
+  // Derived payment summary
+  const saleTotal = useMemo(() => Number(totals.final || 0), [totals.final]);
+  const grossDue = Number(header.old_remaining || 0) + saleTotal;
+  const netDue = Math.max(grossDue - Number(header.cash_received || 0), 0);
+
+  // Validation helpers
+  const validateHeader = () => {
+    const req = ["date", "customer_id", "sale_no"];
+    const newErr = {};
+    let firstKey = null;
+    req.forEach((k) => {
+      const miss = !header[k];
+      newErr[k] = miss;
+      if (miss && !firstKey) firstKey = k;
+    });
+    setErrors((er) => ({ ...er, header: { ...er.header, ...newErr } }));
+    return firstKey; // null if none missing
+  };
+
+  const validateRows = () => {
+    let first = { rowIdx: null, field: null };
+    const newRowsErr = {};
+    rows.forEach((r, i) => {
+      const rowErr = {};
+      if (!r.product_id) {
+        rowErr.product_id = true;
+        if (first.rowIdx === null) first = { rowIdx: i, field: "product_id" };
+      }
+      if (!(Number(r.qty) > 0)) {
+        rowErr.qty = true;
+        if (first.rowIdx === null) first = { rowIdx: i, field: "qty" };
+      }
+      if (!(Number(r.rate) > 0)) {
+        rowErr.rate = true;
+        if (first.rowIdx === null) first = { rowIdx: i, field: "rate" };
+      }
+      newRowsErr[i] = rowErr;
+    });
+    setErrors((er) => ({ ...er, rows: { ...er.rows, ...newRowsErr } }));
+    return first.rowIdx !== null ? first : null;
+  };
+
+  const focusHeader = (key) => {
+    const ref = headerRefs[key];
+    if (ref?.current) ref.current.focus();
+  };
+
+  const focusRowCell = (rowIdx, field) => {
+    const ref = rowRefs[rowIdx]?.[field];
+    if (ref?.current) ref.current.focus();
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
-    if (!isFormValid) {
-      Swal.fire({ icon: "error", title: "Required fields missing", text: "Please fill required fields" });
+
+    const missingHeaderKey = validateHeader();
+    if (missingHeaderKey) {
+      Swal.fire({ icon: "error", title: "Header missing", text: `Please fill ${missingHeaderKey.replace("_", " ")}` });
+      focusHeader(missingHeaderKey);
       return;
     }
+
+    const firstBad = validateRows();
+    if (firstBad) {
+      Swal.fire({ icon: "error", title: "Item row missing", text: `Please fill row ${firstBad.rowIdx + 1} - ${firstBad.field}` });
+      focusRowCell(firstBad.rowIdx, firstBad.field);
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -255,19 +426,22 @@ export default function SalesForm({ sale, onSubmitted }) {
         return;
       }
 
+      const derivedPaymentStatus =
+        netDue <= 0 ? "Paid" : (Number(header.cash_received || 0) > 0 ? "Partial" : "Unpaid");
+
       const payload = {
         customer_id: header.customer_id,
         bill_no: header.sale_no,
         bill_date: header.date,
         status: header.status || "Active",
-        payment_status: header.payment_status || "Unpaid",
+        payment_status: derivedPaymentStatus,
         payment_method: header.payment_method || "Cash",
         remarks: header.terms_condition || "",
+        cash_received: Number(header.cash_received || 0), // NEW
         items: rows.map((r) => ({
           product_id: r.product_id,
           qty: Number(r.qty),
           discount_rate: Number(r.d1_percent || 0),
-          // per_size_disc: Number(r.per_size_disc || 0), // enable if backend supports
           gst_percent: Number(r.gst_percent || 0),
           unit: r.unit || "PCS",
           rate: Number(r.rate || 0),
@@ -276,12 +450,31 @@ export default function SalesForm({ sale, onSubmitted }) {
 
       if (isEditMode) {
         await salesAPI.update(sale.id, payload);
-        await Swal.fire({ icon: "success", title: "Sale updated", text: "Sale updated successfully", confirmButtonColor: "#2563eb" });
+        await Swal.fire({
+          icon: "success",
+          title: "Sale updated",
+          text: "Sale updated successfully",
+          confirmButtonColor: "#2563eb",
+        });
       } else {
-        await salesAPI.create(payload);
-        await Swal.fire({ icon: "success", title: "Sale created", text: "Sale created successfully", confirmButtonColor: "#2563eb" });
+        const { data: result } = await salesAPI.create(payload);
+        await Swal.fire({
+          icon: "success",
+          title: "Sale created",
+          html: `
+            <div style="text-align:left">
+              <div>Old Due: <b>${Number(result?.previous_due || 0).toFixed(2)}</b></div>
+              <div>Sale Total: <b>${Number(result?.total_amount || 0).toFixed(2)}</b></div>
+              <div>Cash Received: <b>${Number(result?.cash_received || 0).toFixed(2)}</b></div>
+              <div>New Due: <b>${Number(result?.new_due || 0).toFixed(2)}</b></div>
+              <div>Status: <b>${result?.payment_status || "-"}</b></div>
+            </div>
+          `,
+          confirmButtonColor: "#2563eb",
+        });
       }
 
+      // Reset form
       setHeader({
         sale_no: "",
         date: "",
@@ -293,11 +486,34 @@ export default function SalesForm({ sale, onSubmitted }) {
         payment_status: "Unpaid",
         payment_method: "Cash",
         status: "Active",
+        old_remaining: 0,
+        cash_received: 0,
       });
-      setRows([{ product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, cost_rate: 0, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS", manualRate: false }]);
+      setRows([
+        {
+          product_id: "",
+          item_name: "",
+          hsn_code: "",
+          available: 0,
+          qty: 1,
+          cost_rate: 0,
+          rate: 0,
+          d1_percent: 0,
+          per_size_disc: 0,
+          gst_percent: 0,
+          unit: "PCS",
+          manualRate: false,
+        },
+      ]);
+      setErrors({ header: {}, rows: {} });
       onSubmitted && onSubmitted();
     } catch (e) {
-      Swal.fire({ icon: "error", title: "Failed to save", text: e?.response?.data?.error || "Failed to save sale", confirmButtonColor: "#dc2626" });
+      Swal.fire({
+        icon: "error",
+        title: "Failed to save",
+        text: e?.response?.data?.error || "Failed to save sale",
+        confirmButtonColor: "#dc2626",
+      });
     } finally {
       setLoading(false);
     }
@@ -314,24 +530,71 @@ export default function SalesForm({ sale, onSubmitted }) {
     badge: "font-semibold",
   };
 
+  const errClass = "border-red-500 ring-1 ring-red-400";
+
   return (
     <form onSubmit={onSubmit} className="bg-white shadow-lg rounded-xl p-6 mb-6">
       <h2 className="text-xl font-bold mb-4">{isEditMode ? "Update Sale" : "Create Sale"}</h2>
 
+      {/* Payment summary block */}
+      <div className="grid grid-cols-4 gap-4 mb-4">
+        <div className="flex flex-col">
+          <label className="text-sm text-gray-600 mb-1">Old Remaining</label>
+          <input readOnly className="border p-2 rounded-lg bg-gray-100" value={fx(header.old_remaining)} />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-sm text-gray-600 mb-1">Sale Total</label>
+          <input readOnly className="border p-2 rounded-lg bg-gray-100" value={fx(saleTotal)} />
+        </div>
+        <div className="flex flex-col">
+          <label htmlFor="cash_received" className="text-sm text-gray-600 mb-1">Cash Received</label>
+          <input
+            id="cash_received"
+            ref={headerRefs.cash_received}
+            type="number"
+            min={0}
+            step="0.01"
+            className="border p-2 rounded-lg"
+            value={header.cash_received}
+            onChange={(e) => onHeader({ target: { name: "cash_received", value: e.target.value } })}
+            placeholder="0.00"
+          />
+        </div>
+        <div className="flex flex-col">
+          <label className="text-sm text-gray-600 mb-1">Net Due</label>
+          <input readOnly className="border p-2 rounded-lg bg-gray-100" value={fx(netDue)} />
+        </div>
+      </div>
+
+      {/* Header grid */}
       <div className="grid grid-cols-4 gap-4">
         <div className="flex items-center gap-2">
-          <input id="useCostMargin" type="checkbox" checked={useCostMargin} onChange={(e)=>setUseCostMargin(e.target.checked)} />
+          <input id="useCostMargin" type="checkbox" checked={true} disabled />
           <label htmlFor="useCostMargin" className="text-sm text-gray-700">Use cost-based margin</label>
         </div>
 
         <div className="flex flex-col">
           <label htmlFor="date" className="text-sm text-gray-600 mb-1">Date</label>
-          <input id="date" type="date" className="border p-2 rounded-lg" value={header.date} onChange={(e) => setHeader((p) => ({ ...p, date: e.target.value }))} />
+          <input
+            id="date"
+            ref={headerRefs.date}
+            type="date"
+            className={`border p-2 rounded-lg ${errors.header.date ? errClass : ""}`}
+            value={header.date}
+            onChange={(e) => onHeader({ target: { name: "date", value: e.target.value } })}
+          />
         </div>
 
         <div className="flex flex-col">
           <label htmlFor="customer_id" className="text-sm text-gray-600 mb-1">Customer</label>
-          <select id="customer_id" name="customer_id" className="border p-2 rounded-lg" value={header.customer_id} onChange={onHeader}>
+          <select
+            id="customer_id"
+            name="customer_id"
+            ref={headerRefs.customer_id}
+            className={`border p-2 rounded-lg ${errors.header.customer_id ? errClass : ""}`}
+            value={header.customer_id}
+            onChange={onHeader}
+          >
             <option value="">Select Customer</option>
             {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
           </select>
@@ -339,38 +602,72 @@ export default function SalesForm({ sale, onSubmitted }) {
 
         <div className="flex flex-col">
           <label htmlFor="address" className="text-sm text-gray-600 mb-1">Address</label>
-          <input id="address" className="border p-2 rounded-lg" placeholder="Address" value={header.address} onChange={(e) => setHeader((p) => ({ ...p, address: e.target.value }))} />
+          <input
+            id="address"
+            ref={headerRefs.address}
+            className="border p-2 rounded-lg"
+            placeholder="Address"
+            value={header.address}
+            onChange={(e) => setHeader((p) => ({ ...p, address: e.target.value }))}
+          />
         </div>
 
         <div className="flex flex-col">
           <label htmlFor="mobile_no" className="text-sm text-gray-600 mb-1">Mobile</label>
-          <input id="mobile_no" className="border p-2 rounded-lg" placeholder="Mobile" value={header.mobile_no} onChange={(e) => setHeader((p) => ({ ...p, mobile_no: e.target.value }))} />
+          <input
+            id="mobile_no"
+            ref={headerRefs.mobile_no}
+            className="border p-2 rounded-lg"
+            placeholder="Mobile"
+            value={header.mobile_no}
+            onChange={(e) => setHeader((p) => ({ ...p, mobile_no: e.target.value }))}
+          />
         </div>
 
         <div className="flex flex-col">
           <label htmlFor="gst_no" className="text-sm text-gray-600 mb-1">GST No.</label>
-          <input id="gst_no" className="border p-2 rounded-lg" placeholder="GST No." value={header.gst_no} onChange={(e) => setHeader((p) => ({ ...p, gst_no: e.target.value }))} />
+          <input
+            id="gst_no"
+            ref={headerRefs.gst_no}
+            className="border p-2 rounded-lg"
+            placeholder="GST No."
+            value={header.gst_no}
+            onChange={(e) => setHeader((p) => ({ ...p, gst_no: e.target.value }))}
+          />
         </div>
 
         <div className="flex flex-col">
           <label htmlFor="payment_status" className="text-sm text-gray-600 mb-1">Payment Status</label>
-          <select id="payment_status" className="border p-2 rounded-lg" value={header.payment_status} onChange={(e) => setHeader((p) => ({ ...p, payment_status: e.target.value }))}>
+          <select
+            id="payment_status"
+            ref={headerRefs.payment_status}
+            className="border p-2 rounded-lg"
+            value={header.payment_status}
+            onChange={(e) => setHeader((p) => ({ ...p, payment_status: e.target.value }))}
+          >
             <option>Unpaid</option><option>Partial</option><option>Paid</option>
           </select>
         </div>
 
         <div className="flex flex-col">
           <label htmlFor="payment_method" className="text-sm text-gray-600 mb-1">Payment Method</label>
-          <select id="payment_method" className="border p-2 rounded-lg" value={header.payment_method} onChange={(e) => setHeader((p) => ({ ...p, payment_method: e.target.value }))}>
+          <select
+            id="payment_method"
+            ref={headerRefs.payment_method}
+            className="border p-2 rounded-lg"
+            value={header.payment_method}
+            onChange={(e) => setHeader((p) => ({ ...p, payment_method: e.target.value }))}
+          >
             <option>Cash</option><option>Card</option><option>Online</option><option>Credit Card</option><option>UPI</option>
           </select>
         </div>
       </div>
 
+      {/* Items */}
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-full border text-xs">
           <thead>
-            <tr className={`${"bg-green-700"} ${"text-white"}`}>
+            <tr className={`bg-green-700 text-white`}>
               <th className="px-2 py-2 border text-center w-10">Sl</th>
               <th className="px-2 py-2 border text-left">Item Name</th>
               <th className="px-2 py-2 border text-left">HSNCode</th>
@@ -405,7 +702,12 @@ export default function SalesForm({ sale, onSubmitted }) {
                   <td className="px-2 py-1 border text-center">{i + 1}</td>
 
                   <td className="px-2 py-1 border">
-                    <select className={`border rounded w-full h-8 px-2 text-xs`} value={r.product_id} onChange={(e) => onRow(i, "product_id", e.target.value)}>
+                    <select
+                      ref={rowRefs[i]?.product_id}
+                      className={`border rounded w-full h-8 px-2 text-xs ${errors.rows[i]?.product_id ? errClass : ""}`}
+                      value={r.product_id}
+                      onChange={(e) => onRow(i, "product_id", e.target.value)}
+                    >
                       <option value="">Select</option>
                       {products.map((p) => (<option key={p.id} value={p.id}>{p.product_name}</option>))}
                     </select>
@@ -420,30 +722,41 @@ export default function SalesForm({ sale, onSubmitted }) {
                   </td>
 
                   <td className="px-2 py-1 border text-center">
-                    <input type="number" min={1} max={Number(r.available || 0)} className="border rounded w-14 h-8 px-2 text-center text-xs" value={r.qty} onChange={(e) => onRow(i, "qty", e.target.value)} />
+                    <input
+                      ref={rowRefs[i]?.qty}
+                      type="number"
+                      min={1}
+                      max={Number(r.available || 0)}
+                      className={`border rounded w-14 h-8 px-2 text-center text-xs ${errors.rows[i]?.qty ? errClass : ""}`}
+                      value={r.qty}
+                      onChange={(e) => onRow(i, "qty", e.target.value)}
+                    />
                   </td>
 
-<td className="px-2 py-1 border text-right">
-  <input
-    type="number"
-    className={`border rounded w-20 h-8 px-2 text-right text-xs`}
-    value={r.rate}
-    onChange={(e) => onRow(i, "rate", e.target.value)}
-  />
-  <div className="text-[10px] text-gray-500 text-right">
-    {useCostMargin && !r.manualRate
-      ? `Margin: ${getRowMarginPercent(r)}% (auto)`
-      : "Manual rate"}
-  </div>
-</td>
-
+                  <td className="px-2 py-1 border text-right">
+                    <input
+                      ref={rowRefs[i]?.rate}
+                      type="number"
+                      readOnly={true}
+                      className={`border rounded w-20 h-8 px-2 text-right text-xs bg-gray-100 cursor-not-allowed`}
+                      value={r.rate}
+                    />
+                    <div className="text-[10px] text-gray-500 text-right">
+                      {useCostMargin && !r.manualRate ? `Margin: ${getRowMarginPercent(r)}% (auto)` : "Manual rate"}
+                    </div>
+                  </td>
 
                   <td className="px-2 py-1 border text-right">
                     <span className={"font-semibold"}>{fx(base)}</span>
                   </td>
 
                   <td className="px-2 py-1 border text-right">
-                    <input type="number" className={`border rounded w-16 h-8 px-2 text-right text-xs`} value={r.d1_percent} onChange={(e) => onRow(i, "d1_percent", e.target.value)} />
+                    <input
+                      type="number"
+                      className={`border rounded w-16 h-8 px-2 text-right text-xs`}
+                      value={r.d1_percent}
+                      onChange={(e) => onRow(i, "d1_percent", e.target.value)}
+                    />
                   </td>
 
                   <td className="px-2 py-1 border text-right">
@@ -455,7 +768,13 @@ export default function SalesForm({ sale, onSubmitted }) {
                   </td>
 
                   <td className="px-2 py-1 border text-right">
-                    <input type="number" className={`border rounded w-16 h-8 px-2 text-right text-xs`} value={r.gst_percent} onChange={(e) => onRow(i, "gst_percent", e.target.value)} />
+                    <input
+                      ref={rowRefs[i]?.gst_percent}
+                      type="number"
+                      className={`border rounded w-16 h-8 px-2 text-right text-xs`}
+                      value={r.gst_percent}
+                      onChange={(e) => onRow(i, "gst_percent", e.target.value)}
+                    />
                   </td>
 
                   <td className="px-2 py-1 border text-right">
@@ -467,108 +786,136 @@ export default function SalesForm({ sale, onSubmitted }) {
                   </td>
 
                   <td className="px-2 py-1 border text-center">
-                    <button className="h-8 w-8 grid place-items-center rounded-full bg-red-100 text-red-600 hover:bg-red-200" onClick={async (ev) => { ev.preventDefault();
-                      const res = await Swal.fire({ title: "Remove this row?", text: "This item will be removed from the sale.", icon: "warning", showCancelButton: true, confirmButtonText: "Remove", cancelButtonText: "Cancel", confirmButtonColor: "#dc2626" });
-                      if (res.isConfirmed) setRows((p)=>p.filter((_,idx)=>idx!==i));
-                    }} type="button" title="Remove">×</button>
+                    <button
+                      className="h-8 w-8 grid place-items-center rounded-full bg-red-100 text-red-600 hover:bg-red-200"
+                      onClick={async (ev) => {
+                        ev.preventDefault();
+                        const res = await Swal.fire({
+                          title: "Remove this row?",
+                          text: "This item will be removed from the sale.",
+                          icon: "warning",
+                          showCancelButton: true,
+                          confirmButtonText: "Remove",
+                          cancelButtonText: "Cancel",
+                          confirmButtonColor: "#dc2626",
+                        });
+                        if (res.isConfirmed) {
+                          setRows((p) => p.filter((_, idx) => idx !== i));
+                          setErrors((er) => {
+                            const copy = { ...er };
+                            delete copy.rows[i];
+                            return copy;
+                          });
+                        }
+                      }}
+                      type="button"
+                      title="Remove"
+                    >
+                      ×
+                    </button>
                   </td>
                 </tr>
               );
             })}
-
-            {/* <tr className="bg-gray-100">
-              <td className="px-2 py-2 border" colSpan={6}>Totals</td>
-              <td className="px-2 py-2 border text-right">
-                <span className={"font-semibold"}>{fx(rows.reduce((a,r)=>a+((Number(r.qty)||0)*(Number(r.rate)||0)),0))}</span>
-              </td>
-              <td className="px-2 py-2 border text-center">—</td>
-              <td className="px-2 py-2 border text-right">
-                <span className={"font-semibold"}>{fx(rows.reduce((a,r)=>{
-                  const rate = Number(r.rate)||0;
-                  const pct = Number(r.d1_percent)||0;
-                  const qty = Number(r.qty)||0;
-                  const perUnitDisc = (rate * pct)/100;
-                  const perUnitTotal = perUnitDisc * qty;
-                  const perQty = Number(r.per_size_disc||0);
-                  return a + perUnitTotal + perQty;
-                },0))}</span>
-              </td>
-              <td className="px-2 py-2 border text-center">—</td>
-              <td className="px-2 py-2 border text-right">
-                <span className={"font-semibold"}>{fx(rows.reduce((a,r)=>{
-                  const base=(Number(r.qty)||0)*(Number(r.rate)||0);
-                  const perUnit=((Number(r.rate)||0)*(Number(r.d1_percent)||0))/100*(Number(r.qty)||0);
-                  const perQty=Number(r.per_size_disc||0);
-                  const taxable=Math.max(base - (perUnit+perQty),0);
-                  const gstAmt=(taxable*(Number(r.gst_percent)||0))/100;
-                  return a + gstAmt;
-                },0))}</span>
-              </td>
-              <td className="px-2 py-2 border text-right">
-                <span className={"font-semibold"}>{fx(rows.reduce((a,r)=>{
-                  const base=(Number(r.qty)||0)*(Number(r.rate)||0);
-                  const perUnit=((Number(r.rate)||0)*(Number(r.d1_percent)||0))/100*(Number(r.qty)||0);
-                  const perQty=Number(r.per_size_disc||0);
-                  const taxable=Math.max(base - (perUnit+perQty),0);
-                  const gstAmt=(taxable*(Number(r.gst_percent)||0))/100;
-                  return a + taxable + gstAmt;
-                },0))}</span>
-              </td>
-              <td className="px-2 py-2 border"></td>
-            </tr> */}
           </tbody>
-<tfoot>
-  <tr className="bg-gray-100 font-semibold text-right text-xs">
-    <td className="px-2 py-2 border text-center"></td>
-    <td className="px-2 py-2 border text-left">Totals</td>
-    <td className="px-2 py-2 border text-left"></td>
-    <td className="px-2 py-2 border text-center"></td>
-    <td className="px-2 py-2 border text-center">
-      {fx(rows.reduce((a,r)=>a+Number(r.qty||0),0))}
-    </td>
-    <td className="px-2 py-2 border text-right">
-      {fx(rows.reduce((a,r)=>a+Number(r.rate||0),0))}
-    </td>
-    <td className="px-2 py-2 border text-right">{fx(totals.base)}</td>
-    <td className="px-2 py-2 border text-right"></td>
-    <td className="px-2 py-2 border text-right">{fx(totals.pctDisc)}</td>
-    <td className="px-2 py-2 border text-right">{fx(totals.disc)}</td>
-    <td className="px-2 py-2 border text-right"></td>
-    <td className="px-2 py-2 border text-right">{fx(totals.gst)}</td>
-    <td className="px-2 py-2 border text-right">{fx(totals.final)}</td>
-    <td className="px-2 py-2 border text-center">
-      
-    </td>
-  </tr>
-  <tr>
-    <td className="px-2 py-1 border" colSpan={13}>
-      <button
-        className="px-2 py-1 bg-gray-200 rounded text-xs"
-        onClick={(e)=>{e.preventDefault(); setRows((p)=>[...p,{
-          product_id:"", item_name:"", hsn_code:"", available:0, qty:1,
-          cost_rate:0, rate:0, d1_percent:0, per_size_disc:0, gst_percent:0,
-          unit:"PCS", manualRate:false
-        }])}}
-        type="button"
-      >
-        Add Row
-      </button>
-    </td>
-  </tr>
-</tfoot>
 
-
+          <tfoot>
+            <tr className="bg-gray-100 font-semibold text-right text-xs">
+              <td className="px-2 py-2 border text-center"></td>
+              <td className="px-2 py-2 border text-left">Totals</td>
+              <td className="px-2 py-2 border text-left"></td>
+              <td className="px-2 py-2 border text-center"></td>
+              <td className="px-2 py-2 border text-center">
+                {fx(rows.reduce((a, r) => a + Number(r.qty || 0), 0))}
+              </td>
+              <td className="px-2 py-2 border text-right">
+                {fx(rows.reduce((a, r) => a + Number(r.rate || 0), 0))}
+              </td>
+              <td className="px-2 py-2 border text-right">{fx(totals.base)}</td>
+              <td className="px-2 py-2 border text-right"></td>
+              <td className="px-2 py-2 border text-right">{fx(totals.pctDisc)}</td>
+              <td className="px-2 py-2 border text-right">{fx(totals.disc)}</td>
+              <td className="px-2 py-2 border text-right"></td>
+              <td className="px-2 py-2 border text-right">{fx(totals.gst)}</td>
+              <td className="px-2 py-2 border text-right">{fx(totals.final)}</td>
+              <td className="px-2 py-2 border text-center"></td>
+            </tr>
+            <tr>
+              <td className="px-2 py-1 border" colSpan={13}>
+                <button
+                  className="px-2 py-1 bg-gray-200 rounded text-xs"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setRows((p) => [
+                      ...p,
+                      {
+                        product_id: "",
+                        item_name: "",
+                        hsn_code: "",
+                        available: 0,
+                        qty: 1,
+                        cost_rate: 0,
+                        rate: 0,
+                        d1_percent: 0,
+                        per_size_disc: 0,
+                        gst_percent: 0,
+                        unit: "PCS",
+                        manualRate: false,
+                      },
+                    ]);
+                  }}
+                  type="button"
+                >
+                  Add Row
+                </button>
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
 
       <div className="mt-6 flex gap-2">
-        <button type="submit" disabled={loading || !isFormValid} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60">
+        <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60">
           {isEditMode ? "Update" : "Save"}
         </button>
-        <button type="button" className="px-4 py-2 bg-gray-200 rounded-lg" onClick={() => {
-          setHeader((p) => ({ ...p, terms_condition: "" }));
-          setRows([{ product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, cost_rate: 0, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS", manualRate: false }]);
-        }}>
+        <button
+          type="button"
+          className="px-4 py-2 bg-gray-200 rounded-lg"
+          onClick={() => {
+            setHeader((p) => ({
+              ...p,
+              sale_no: "",
+              date: "",
+              customer_id: "",
+              address: "",
+              mobile_no: "",
+              gst_no: "",
+              terms_condition: "",
+              payment_status: "Unpaid",
+              payment_method: "Cash",
+              status: "Active",
+              old_remaining: 0,
+              cash_received: 0,
+            }));
+            setRows([
+              {
+                product_id: "",
+                item_name: "",
+                hsn_code: "",
+                available: 0,
+                qty: 1,
+                cost_rate: 0,
+                rate: 0,
+                d1_percent: 0,
+                per_size_disc: 0,
+                gst_percent: 0,
+                unit: "PCS",
+                manualRate: false,
+              },
+            ]);
+            setErrors({ header: {}, rows: {} });
+          }}
+        >
           Reset
         </button>
       </div>

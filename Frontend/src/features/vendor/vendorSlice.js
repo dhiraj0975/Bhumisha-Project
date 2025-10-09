@@ -218,20 +218,20 @@ const vendorSlice = createSlice({
     editingVendor: null,
   },
   reducers: {
-    setEditingVendor: (state, action) => {
-      const payload = JSON.parse(JSON.stringify(action.payload)); // Deep clone
-      state.editingVendor = {
-        ...payload,
-        bank: {
-          pan_number: payload.bank?.pan_number || "",
-          account_holder_name: payload.bank?.account_holder_name || "",
-          bank_name: payload.bank?.bank_name || "",
-          account_number: payload.bank?.account_number || "",
-          ifsc_code: payload.bank?.ifsc_code || "",
-          branch_name: payload.bank?.branch_name || "",
-        },
-      };
+ setEditingVendor: (state, action) => {
+  const payload = JSON.parse(JSON.stringify(action.payload));
+  state.editingVendor = {
+    ...payload,
+    bank: {
+      pan_number: payload.bank?.pan_number || payload.pan_number || "",
+      account_holder_name: payload.bank?.account_holder_name || payload.account_holder_name || "",
+      bank_name: payload.bank?.bank_name || payload.bank_name || "",
+      account_number: payload.bank?.account_number || payload.account_number || "",
+      ifsc_code: payload.bank?.ifsc_code || payload.ifsc_code || "",
+      branch_name: payload.bank?.branch_name || payload.branch_name || "",
     },
+  };
+},
     clearEditingVendor: (state) => {
       state.editingVendor = null;
     },

@@ -1,12 +1,10 @@
-
-
 import React, { useEffect, useState } from "react";
 import {
   Building2, FileText, MapPin, Phone, CreditCard, Landmark, FileSignature
 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { clearEditingVendor } from "../../features/vendor/vendorSlice"; 
-import { addVendor, fetchVendors, updateVendor } from "../../features/vendor/vendorThunks"; 
+import { clearEditingVendor } from "../../features/vendor/vendorSlice";
+import { addVendor, fetchVendors, updateVendor } from "../../features/vendor/vendorThunks";
 import { toast } from "react-toastify";
 
 const VendorRegistration = ({ onAddVendor }) => {
@@ -19,6 +17,8 @@ const VendorRegistration = ({ onAddVendor }) => {
     gst_no: "",
     address: "",
     contact_number: "",
+    balance: "",         // ADDED
+    min_balance: "5000", // ADDED
     pan_number: "",
     account_holder_name: "",
     bank_name: "",
@@ -27,7 +27,6 @@ const VendorRegistration = ({ onAddVendor }) => {
     branch_name: "",
   });
 
-  // Pre-fill form if editingVendor exists
   useEffect(() => {
     if (editingVendor) {
       setForm({
@@ -36,6 +35,8 @@ const VendorRegistration = ({ onAddVendor }) => {
         gst_no: editingVendor.gst_no || "",
         address: editingVendor.address || "",
         contact_number: editingVendor.contact_number || "",
+        balance: editingVendor.balance ?? "",              // ADDED
+        min_balance: editingVendor.min_balance ?? "5000",  // ADDED
         pan_number: editingVendor.bank?.pan_number || "",
         account_holder_name: editingVendor.bank?.account_holder_name || "",
         bank_name: editingVendor.bank?.bank_name || "",
@@ -46,10 +47,12 @@ const VendorRegistration = ({ onAddVendor }) => {
     } else {
       setForm({
         vendor_name: "",
-         firm_name: "",
+        firm_name: "",
         gst_no: "",
         address: "",
         contact_number: "",
+        balance: "",         // ADDED
+        min_balance: "5000", // ADDED
         pan_number: "",
         account_holder_name: "",
         bank_name: "",
@@ -65,83 +68,62 @@ const VendorRegistration = ({ onAddVendor }) => {
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  console.log("Submitting form data:", form);
+    e.preventDefault();
+    try {
+      let result;
+      const payload = {
+        vendor_name: form.vendor_name,
+        firm_name: form.firm_name,
+        gst_no: form.gst_no,
+        address: form.address,
+        contact_number: form.contact_number,
+        status: editingVendor?.status || "active",
+        balance: form.balance === "" ? undefined : Number(form.balance),             // ADDED
+        min_balance: form.min_balance === "" ? undefined : Number(form.min_balance), // ADDED
+        bank: {
+          pan_number: form.pan_number,
+          account_holder_name: form.account_holder_name,
+          bank_name: form.bank_name,
+          account_number: form.account_number,
+          ifsc_code: form.ifsc_code,
+          branch_name: form.branch_name,
+        },
+      };
 
-  try {
-    let result;
+      if (editingVendor) {
+        result = await dispatch(updateVendor({ id: editingVendor.id, vendor: payload }));
+        dispatch(clearEditingVendor());
+      } else {
+        result = await dispatch(addVendor(payload));
+      }
 
-    if (editingVendor) {
-      result = await dispatch(
-        updateVendor({
-          id: editingVendor.id,
-          vendor: {
-            vendor_name: form.vendor_name,
-            firm_name: form.firm_name,
-            gst_no: form.gst_no,
-            address: form.address,
-            contact_number: form.contact_number,
-            status: editingVendor.status || "active",
-            bank: { 
-              pan_number: form.pan_number,
-              account_holder_name: form.account_holder_name,
-              bank_name: form.bank_name,
-              account_number: form.account_number,
-              ifsc_code: form.ifsc_code,
-              branch_name: form.branch_name,
-            },
-          },
-        })
-      );
-      dispatch(clearEditingVendor());
-    } else {
-      result = await dispatch(
-        addVendor({
-          vendor_name: form.vendor_name,
-          firm_name: form.firm_name,
-          gst_no: form.gst_no,
-          address: form.address,
-          contact_number: form.contact_number,
-          status: "active",
-          bank: {
-            pan_number: form.pan_number,
-            account_holder_name: form.account_holder_name,
-            bank_name: form.bank_name,
-            account_number: form.account_number,
-            ifsc_code: form.ifsc_code,
-            branch_name: form.branch_name,
-          },
-        })
-      );
+      if (result.meta.requestStatus === "rejected") {
+        throw new Error(result.payload?.error || "Submission failed");
+      }
+
+      setForm({
+        vendor_name: "",
+        firm_name: "",
+        gst_no: "",
+        address: "",
+        contact_number: "",
+        balance: "",         // ADDED
+        min_balance: "5000", // ADDED
+        pan_number: "",
+        account_holder_name: "",
+        bank_name: "",
+        account_number: "",
+        ifsc_code: "",
+        branch_name: "",
+      });
+
+      dispatch(fetchVendors());
+      onAddVendor?.();
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast.error(error.message || "An error occurred");
     }
-
-    if (result.meta.requestStatus === "rejected") {
-      throw new Error(result.payload?.error || "Submission failed");
-    }
-
-    // Reset form
-    setForm({
-      vendor_name: "",
-      firm_name: "",
-      gst_no: "",
-      address: "",
-      contact_number: "",
-      pan_number: "",
-      account_holder_name: "",
-      bank_name: "",
-      account_number: "",
-      ifsc_code: "",
-      branch_name: "",
-    });
-
-    dispatch(fetchVendors());
-    onAddVendor?.();
-  } catch (error) {
-    console.error("Submission error:", error);
-    toast.error(error.message || "An error occurred");
-  }
-};
-
+  };
 
   return (
     <form
@@ -224,11 +206,43 @@ const VendorRegistration = ({ onAddVendor }) => {
             required
           />
         </div>
+
+        {/* ADDED: Balance */}
+        <div>
+          <label className="block font-medium mb-1">Balance</label>
+          <input
+            type="number"
+            name="balance"
+            min={0}
+            step="0.01"
+            value={form.balance}
+            onChange={handleChange}
+            className="w-full border rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            placeholder="0.00"
+          />
+        </div>
+
+        {/* ADDED: Minimum Balance */}
+        <div>
+          <label className="block font-medium mb-1">Minimum Balance</label>
+          <input
+            type="number"
+            name="min_balance"
+            min={0}
+            step="0.01"
+            value={form.min_balance}
+            onChange={handleChange}
+            className="w-full border rounded-xl px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            placeholder="5000.00"
+            required
+          />
+        </div>
       </div>
 
       {/* Bank Details */}
       <h3 className="text-xl font-semibold text-gray-700 border-b pb-1">Bank Details</h3>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* existing bank inputs unchanged */}
         <div>
           <label className="block font-medium mb-1 flex items-center gap-2">
             <FileSignature className="text-blue-600" size={18} /> PAN Number

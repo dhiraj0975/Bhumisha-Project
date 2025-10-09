@@ -1,7 +1,18 @@
-const db = require('../config/db'); // mysql2 (non-promise) config
+
+
+const db = require('../config/db'); // mysql2 (non-promise)
+
+/**
+ * Helper: sanitize numeric fields
+ */
+const num = (v, d = 0) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : d;
+};
+const bit = (v) => (String(v) === "1" || v === 1 || v === true || String(v).toLowerCase() === "true" ? 1 : 0);
 
 const Customer = {
-  // 1️⃣ Get all customers
+  // 1️⃣ Get all customers (now returns new columns too)
   getAll: (callback) => {
     const sql = `
       SELECT *, 
@@ -30,32 +41,100 @@ const Customer = {
     });
   },
 
-  // 3️⃣ Create new customer
+  // 3️⃣ Create new customer (supports new fields but optional)
   create: (data, callback) => {
-    const { name, email, phone, address, status } = data;
-    const sql = `
-      INSERT INTO customers (name, email, phone, address, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, NOW(), NOW())
-    `;
-    db.query(sql, [name, email || "", phone || "", address || "", status || "Active"], (err, result) => {
+const {
+  name, email, phone, address, status,
+  add_gst = 0, gst_percent = 0, balance = 0, min_balance = 5000,
+} = data;
+
+const sql = `
+  INSERT INTO customers 
+    (name, email, phone, address, add_gst, gst_percent, balance, min_balance, status, created_at, updated_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+`;
+const params = [
+  name,
+  email || "",
+  phone || "",
+  address || "",
+  bit(add_gst),
+  Number(gst_percent ?? 0),
+  num(balance, 0),
+  num(min_balance, 5000),
+  status || "Active",
+];
+
+    
+    db.query(sql, params, (err, result) => {
       if (err) return callback(err);
-      callback(null, { id: result.insertId, name, email, phone, address, status: status || "Active" });
+      callback(null, {
+        id: result.insertId,
+        name,
+        email: email || "",
+        phone: phone || "",
+        address: address || "",
+        add_gst: bit(add_gst),
+        balance: Number(num(balance, 0)).toFixed(2),
+        min_balance: Number(num(min_balance, 5000)).toFixed(2),
+        status: status || "Active",
+      });
     });
   },
 
-  // 4️⃣ Update customer
-  update: (id, data, callback) => {
-    const { name, email, phone, address, status } = data;
-    const sql = `
-      UPDATE customers 
-      SET name=?, email=?, phone=?, address=?, status=?, updated_at=NOW() 
-      WHERE id=?
-    `;
-    db.query(sql, [name, email || "", phone || "", address || "", status || "Active", id], (err, result) => {
-      if (err) return callback(err);
-      callback(null, result.affectedRows);
-    });
-  },
+  // 4️⃣ Update customer (partial update safe)
+update: (id, data, callback) => {
+  // Allow partial updates; fallback to existing values using COALESCE-like logic in code
+  // Build dynamic SET clause
+  const allowed = [
+    "name",
+    "email",
+    "phone",
+    "address",
+    "status",
+    "add_gst",
+    "gst_percent",
+    "balance",
+    "min_balance",
+  ];
+
+  const fields = [];
+  const params = [];
+
+  allowed.forEach((k) => {
+    if (data[k] !== undefined) {
+      if (k === "add_gst") {
+        fields.push(`${k}=?`);
+        params.push(bit(data[k]));
+      } else if (k === "balance" || k === "min_balance") {
+        fields.push(`${k}=?`);
+        params.push(num(data[k], k === "min_balance" ? 5000 : 0));
+      } else if (k === "gst_percent") {
+        fields.push(`${k}=?`);
+        params.push(Number(data[k] ?? 0));
+      } else {
+        fields.push(`${k}=?`);
+        params.push(data[k]);
+      }
+    }
+  });
+
+  if (!fields.length) {
+    // No fields updated, but still update timestamp
+    fields.push(`updated_at=NOW()`);
+  } else {
+    fields.push(`updated_at=NOW()`);
+  }
+
+  const sql = `UPDATE customers SET ${fields.join(", ")} WHERE id=?`;
+  params.push(id);
+
+  db.query(sql, params, (err, result) => {
+    if (err) return callback(err);
+    callback(null, result.affectedRows);
+  });
+},
+
 
   // 5️⃣ Delete customer
   delete: (id, callback) => {
@@ -75,13 +154,46 @@ const Customer = {
       callback(null, newStatus);
     });
   },
+
+  // 7️⃣ Find by email
   findByEmail: (email, callback) => {
-  const sql = "SELECT * FROM customers WHERE email = ?";
-  db.query(sql, [email], (err, result) => {
-    if (err) return callback(err, null);
-    callback(null, result.length ? result[0] : null);
+    const sql = "SELECT * FROM customers WHERE email = ?";
+    db.query(sql, [email], (err, result) => {
+      if (err) return callback(err, null);
+      callback(null, result.length ? result[0] : null);
+    });
+  },
+
+  // 8️⃣ Aggregate customer balance (compute-on-read)
+// 8️⃣ Aggregate customer balance (compute-on-read) — adjusted for your schema
+getBalanceAggregate: (customerId, callback) => {
+  // Sum of all sales total_amount for the customer (excluding cancelled if applicable)
+  // Minus sum of all sale_payments.amount for that customer
+  // Returns table not present -> treated as 0 for now
+  const sql = `
+    SELECT
+      COALESCE((
+        SELECT SUM(s.total_amount)
+        FROM sales s
+        WHERE s.customer_id = ? AND (s.status IS NULL OR s.status <> 'Cancelled')
+      ), 0) AS total_sales,
+      COALESCE((
+        SELECT SUM(p.amount)
+        FROM sale_payments p
+        WHERE p.customer_id = ?
+      ), 0) AS total_payments
+  `;
+  db.query(sql, [customerId, customerId], (err, rows) => {
+    if (err) return callback(err);
+    const row = rows?.[0] || {};
+    const total_sales = Number(row.total_sales || 0);
+    const total_payments = Number(row.total_payments || 0);
+    const previous_due = Math.max(total_sales - total_payments, 0);
+    const advance = Math.max(total_payments - total_sales, 0); // prepaid if any
+    callback(null, { previous_due, advance });
   });
 },
+
 
 };
 

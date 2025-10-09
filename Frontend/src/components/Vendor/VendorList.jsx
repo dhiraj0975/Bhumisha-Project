@@ -1,19 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import {  setEditingVendor } from "../../features/vendor/vendorSlice";
-import {deleteVendor,fetchVendors, updateVendor, updateVendorStatus} from "../../features/vendor/vendorThunks.js"
+import { setEditingVendor } from "../../features/vendor/vendorSlice";
+import { deleteVendor, fetchVendors, updateVendorStatus } from "../../features/vendor/vendorThunks.js";
 import DataTable from "../DataTable/DataTable";
 import { IconButton } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
 import {
-  Building2, FileText, MapPin, Phone, CreditCard, Landmark, FileSignature, ToggleLeft, ToggleRight
+  Building2, FileText, MapPin, Phone, CreditCard, Landmark, FileSignature
 } from "lucide-react";
 
 export default function VendorList() {
   const dispatch = useDispatch();
-  const { vendors, loading, error, editingVendor } = useSelector((state) => state.vendors);
+  const { vendors, loading, error } = useSelector((state) => state.vendors);
   const [viewVendor, setViewVendor] = useState(null);
   const [bankDetailsVendor, setBankDetailsVendor] = useState(null);
   const [search, setSearch] = useState("");
@@ -24,12 +24,11 @@ export default function VendorList() {
     dispatch(fetchVendors());
   }, [dispatch]);
 
-  // Derived data: filter by search and paginate
   const filteredVendors = useMemo(() => {
     if (!search) return vendors;
     const term = search.toLowerCase();
     return vendors.filter((v) =>
-      [v.vendor_name,v.firm_name, v.gst_no, v.address, v.contact_number]
+      [v.vendor_name, v.firm_name, v.gst_no, v.address, v.contact_number]
         .filter(Boolean)
         .some((val) => String(val).toLowerCase().includes(term))
     );
@@ -44,11 +43,11 @@ export default function VendorList() {
     return filteredVendors.slice(start, start + PAGE_SIZE);
   }, [filteredVendors, page]);
 
-  const handleEdit = (vendor) => {
-    console.log("Editing Vendor from VendorList:", vendor); // Debug log
-    dispatch(setEditingVendor(vendor));
-    try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
-  };
+const handleEdit = (vendor) => {
+  dispatch(setEditingVendor(vendor));
+  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
+};
+
 
   const handleDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this vendor?")) {
@@ -60,20 +59,17 @@ export default function VendorList() {
     const normalizedCurrentStatus = (currentStatus || "").toString().toLowerCase();
     const newStatus = normalizedCurrentStatus === 'active' ? 'inactive' : 'active';
     await dispatch(updateVendorStatus({ id, status: newStatus }));
-    // Refresh vendors list to get updated data from backend
     dispatch(fetchVendors());
   };
 
-  // Stats
   const totalVendors = vendors.length;
   const activeVendors = vendors.filter((v) => (v.status || "").toString().toLowerCase() === "active").length;
   const inactiveVendors = totalVendors - activeVendors;
 
-  // DataGrid columns for sorting
   const columns = [
-    { 
-      field: "sl_no", 
-      headerName: "Sl.No.", 
+    {
+      field: "sl_no",
+      headerName: "Sl.No.",
       width: 80,
       sortable: false,
       renderCell: (params) => {
@@ -82,32 +78,59 @@ export default function VendorList() {
         return pageStart + rowIndex + 1;
       }
     },
-    
     { field: "vendor_name", headerName: "Vendor Name", flex: 1 },
     { field: "firm_name", headerName: "Firm Name", flex: 1 },
     { field: "gst_no", headerName: "GST No", flex: 1 },
     { field: "address", headerName: "Address", flex: 1 },
     { field: "contact_number", headerName: "Contact", flex: 1 },
-    { 
-      field: "status", 
-      headerName: "Status", 
+
+    // ADDED: Balance with conditional red text if below threshold
+    {
+      field: "balance",
+      headerName: "Balance",
+      width: 140,
+      renderCell: (params) => {
+        const bal = Number(params.row.balance ?? 0);
+        const min = Number(params.row.min_balance ?? 5000);
+        const low = bal < min;
+        return (
+          <span className={`${low ? "text-red-600 font-semibold" : "text-gray-800"}`}>
+            {bal.toFixed(2)}
+          </span>
+        );
+      },
+    },
+
+    // ADDED: Min Balance column
+    {
+      field: "min_balance",
+      headerName: "Min Balance",
+      width: 140,
+      renderCell: (params) => {
+        const min = Number(params.row.min_balance ?? 5000);
+        return <span className="text-gray-800">{min.toFixed(2)}</span>;
+      },
+    },
+
+    {
+      field: "status",
+      headerName: "Status",
       width: 120,
       sortable: false,
       renderCell: (params) => (
         <div
           onClick={() => handleStatusToggle(params.row.id, params.value)}
           className={`relative inline-flex items-center h-6 rounded-full w-11 cursor-pointer transition-all duration-300 shadow-md ${
-            (params.value || "").toString().toLowerCase() === 'active' 
-              ? 'bg-green-500' 
+            (params.value || "").toString().toLowerCase() === 'active'
+              ? 'bg-green-500'
               : 'bg-gray-300'
           }`}
           title={`Click to ${(params.value || "").toString().toLowerCase() === 'active' ? 'deactivate' : 'activate'}`}
         >
-          {/* White circle slider */}
           <span
             className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-300 shadow-lg border border-gray-200 ${
-              (params.value || "").toString().toLowerCase() === 'active' 
-                ? 'translate-x-6' 
+              (params.value || "").toString().toLowerCase() === 'active'
+                ? 'translate-x-6'
                 : 'translate-x-1'
             }`}
           />
@@ -120,8 +143,8 @@ export default function VendorList() {
       sortable: false,
       width: 80,
       renderCell: (params) => (
-        <IconButton 
-          color="info" 
+        <IconButton
+          color="info"
           onClick={() => setBankDetailsVendor(params.row)}
           title="View Bank Details"
         >
@@ -191,16 +214,16 @@ export default function VendorList() {
         <div className="flex-1" />
       </div>
 
-      {/* DataGrid with Sorting */}
+      {/* DataGrid */}
       <div className="bg-white rounded shadow overflow-x-auto mb-6">
-       <DataTable
-      rows={vendors}
-      columns={columns}
-      pageSize={10}
-      checkboxSelection={true}
-      title="Vendors List"
-      getRowId={(row) => row?.id ?? row?.vendor_id ?? row?._id}
-    />
+        <DataTable
+          rows={vendors}
+          columns={columns}
+          pageSize={10}
+          checkboxSelection={true}
+          title="Vendors List"
+          getRowId={(row) => row?.id ?? row?.vendor_id ?? row?._id}
+        />
       </div>
 
       {/* Pagination */}
@@ -232,8 +255,8 @@ export default function VendorList() {
                   <p className="text-gray-600">{bankDetailsVendor.firm_name}</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setBankDetailsVendor(null)} 
+              <button
+                onClick={() => setBankDetailsVendor(null)}
                 className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-full"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,9 +264,8 @@ export default function VendorList() {
                 </svg>
               </button>
             </div>
-            
+
             {(() => {
-              // Bank details are directly on the vendor object from backend JOIN query
               const bank = {
                 pan_number: bankDetailsVendor.pan_number || "",
                 account_holder_name: bankDetailsVendor.account_holder_name || "",
@@ -252,7 +274,6 @@ export default function VendorList() {
                 ifsc_code: bankDetailsVendor.ifsc_code || "",
                 branch_name: bankDetailsVendor.branch_name || ""
               };
-              
               return (
                 <div className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -263,7 +284,7 @@ export default function VendorList() {
                       </div>
                       <p className="text-lg font-bold text-purple-900">{bank.pan_number || "Not Available"}</p>
                     </div>
-                    
+
                     <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
                       <div className="flex items-center gap-2 mb-2">
                         <Building2 size={18} className="text-green-600" />
@@ -271,7 +292,7 @@ export default function VendorList() {
                       </div>
                       <p className="text-lg font-bold text-green-900">{bank.account_holder_name || "Not Available"}</p>
                     </div>
-                    
+
                     <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
                       <div className="flex items-center gap-2 mb-2">
                         <Landmark size={18} className="text-blue-600" />
@@ -279,7 +300,7 @@ export default function VendorList() {
                       </div>
                       <p className="text-lg font-bold text-blue-900">{bank.bank_name || "Not Available"}</p>
                     </div>
-                    
+
                     <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
                       <div className="flex items-center gap-2 mb-2">
                         <CreditCard size={18} className="text-orange-600" />
@@ -287,7 +308,7 @@ export default function VendorList() {
                       </div>
                       <p className="text-lg font-bold text-orange-900">{bank.account_number || "Not Available"}</p>
                     </div>
-                    
+
                     <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200">
                       <div className="flex items-center gap-2 mb-2">
                         <FileText size={18} className="text-indigo-600" />
@@ -295,7 +316,7 @@ export default function VendorList() {
                       </div>
                       <p className="text-lg font-bold text-indigo-900">{bank.ifsc_code || "Not Available"}</p>
                     </div>
-                    
+
                     <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-4 border border-teal-200">
                       <div className="flex items-center gap-2 mb-2">
                         <MapPin size={18} className="text-teal-600" />
@@ -304,9 +325,9 @@ export default function VendorList() {
                       <p className="text-lg font-bold text-teal-900">{bank.branch_name || "Not Available"}</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex justify-end pt-4 border-t border-gray-200">
-                    <button 
+                    <button
                       onClick={() => setBankDetailsVendor(null)}
                       className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
                     >
@@ -329,9 +350,7 @@ export default function VendorList() {
               <button onClick={() => setViewVendor(null)} className="text-gray-500 hover:text-gray-700">✕</button>
             </div>
             {(() => {
-              console.log("View Vendor in Modal:", viewVendor); // Debug log
               const row = viewVendor;
-              // Bank details are directly on the vendor object from backend JOIN query
               const bank = {
                 pan_number: row.pan_number || "",
                 account_holder_name: row.account_holder_name || "",
@@ -367,8 +386,19 @@ export default function VendorList() {
                         <p className="text-gray-500">Address</p>
                         <p className="font-medium flex items-center gap-2"><MapPin size={14} /> {row.address || "-"}</p>
                       </div>
+                      <div>
+                        <p className="text-gray-500">Balance</p>
+                        <p className={`${Number(row.balance ?? 0) < Number(row.min_balance ?? 5000) ? "text-red-600 font-semibold" : "text-gray-800"}`}>
+                          {Number(row.balance ?? 0).toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Min Balance</p>
+                        <p className="text-gray-800">{Number(row.min_balance ?? 5000).toFixed(2)}</p>
+                      </div>
                     </div>
                   </div>
+
                   <div className="space-y-4">
                     <h4 className="text-lg font-semibold text-purple-700 mb-4 flex items-center gap-2">
                       <CreditCard size={18} /> Bank Details
@@ -381,7 +411,7 @@ export default function VendorList() {
                         </div>
                         <p className="text-base font-bold text-purple-900">{bank.pan_number || "Not Available"}</p>
                       </div>
-                      
+
                       <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
                         <div className="flex items-center gap-2 mb-2">
                           <Building2 size={16} className="text-green-600" />
@@ -389,7 +419,7 @@ export default function VendorList() {
                         </div>
                         <p className="text-base font-bold text-green-900">{bank.account_holder_name || "Not Available"}</p>
                       </div>
-                      
+
                       <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
                         <div className="flex items-center gap-2 mb-2">
                           <Landmark size={16} className="text-blue-600" />
@@ -397,7 +427,7 @@ export default function VendorList() {
                         </div>
                         <p className="text-base font-bold text-blue-900">{bank.bank_name || "Not Available"}</p>
                       </div>
-                      
+
                       <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
                         <div className="flex items-center gap-2 mb-2">
                           <CreditCard size={16} className="text-orange-600" />
@@ -405,7 +435,7 @@ export default function VendorList() {
                         </div>
                         <p className="text-base font-bold text-orange-900">{bank.account_number || "Not Available"}</p>
                       </div>
-                      
+
                       <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200">
                         <div className="flex items-center gap-2 mb-2">
                           <FileText size={16} className="text-indigo-600" />
@@ -413,7 +443,7 @@ export default function VendorList() {
                         </div>
                         <p className="text-base font-bold text-indigo-900">{bank.ifsc_code || "Not Available"}</p>
                       </div>
-                      
+
                       <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-4 border border-teal-200">
                         <div className="flex items-center gap-2 mb-2">
                           <MapPin size={16} className="text-teal-600" />
@@ -431,4 +461,4 @@ export default function VendorList() {
       )}
     </div>
   );
-};
+}

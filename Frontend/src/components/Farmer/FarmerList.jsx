@@ -54,6 +54,34 @@ export default function FarmerList({ onEdit }) {
     { field: "contact_number", headerName: "Contact", flex: 1 },
     { field: "khasara_number", headerName: "Khasara No.", flex: 1 },
     // { field: "bank", headerName: "Bank", flex: 1 },
+
+    {
+  field: "balance",
+  headerName: "Balance",
+  width: 140,
+// Balance column renderCell
+renderCell: (params) => {
+  const bal = Number(params.row.balance ?? 0);
+  const min = Number(params.row.min_balance ?? 5000);
+  const high = bal > min; // change here
+  return (
+    <span className={high ? "text-red-600 font-semibold" : "text-gray-800"}>
+      {bal.toFixed(2)}
+    </span>
+  );
+}
+
+},
+
+{
+  field: "min_balance",
+  headerName: "Min Balance",
+  width: 140,
+  renderCell: (params) => {
+    const min = Number(params.row.min_balance ?? 5000);
+    return <span className="text-gray-800">{min.toFixed(2)}</span>;
+  },
+},
     { 
       field: "status", 
       headerName: "Status", 
