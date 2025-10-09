@@ -1,23 +1,37 @@
-// src/pages/sales/SalesForm.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
+import Swal from "sweetalert2";
 import salesAPI from "../../axios/salesAPI";
 import customersAPI from "../../axios/customerAPI";
 import productsAPI from "../../axios/productAPI";
 
-// SweetAlert2
-import Swal from "sweetalert2";
-// Optional CSS: uncomment if consistent styles chahiye
-// import "sweetalert2/dist/sweetalert2.min.css";
-
 const fx = (n) => (isNaN(n) ? "0.000" : Number(n).toFixed(3));
+
+const getMarginPercentByQty = (qty) => {
+  const q = Number(qty) || 0;
+  if (q >= 1 && q <= 4) return 50;
+  if (q >= 5 && q <= 9) return 30;
+  if (q >= 10) return 25;
+  return 0;
+};
+
+const getRowMarginPercent = (r) => getMarginPercentByQty(r.qty || 0);
+
+
+const parseGst = (v) => {
+  if (v == null) return 0;
+  const s = String(v).replace("%", "");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+};
 
 export default function SalesForm({ sale, onSubmitted }) {
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
-
   const isEditMode = Boolean(sale);
+
+  const [useCostMargin, setUseCostMargin] = useState(true);
 
   const [header, setHeader] = useState({
     sale_no: "",
@@ -32,37 +46,24 @@ export default function SalesForm({ sale, onSubmitted }) {
     status: "Active",
   });
 
-  // add per_size_disc in row model
   const [rows, setRows] = useState([
-    { product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS" },
+    { product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, cost_rate: 0, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS", manualRate: false },
   ]);
-
-  const parseGst = (v) => {
-    if (v == null) return 0;
-    const s = String(v).replace("%", "");
-    const n = Number(s);
-    return Number.isFinite(n) ? n : 0;
-  };
 
   useEffect(() => {
     const init = async () => {
       try {
         setLoading(true);
-        const [custRes, prodRes] = await Promise.all([
-          customersAPI.getAll(),
-          productsAPI.getAll(),
-        ]);
-
+        const [custRes, prodRes] = await Promise.all([customersAPI.getAll(), productsAPI.getAll()]);
         const allCustomers = custRes?.data || [];
         setCustomers(allCustomers);
 
-        const rawProducts = prodRes?.data || [];
-        const normalized = rawProducts.map((p) => ({
+        const normalized = (prodRes?.data || []).map((p) => ({
           id: p.id,
           product_name: p.product_name,
           hsn_code: p.hsn_code || "",
           available: Number(p.size || 0),
-          rate: Number(p.total || 0),
+          cost_rate: Number(p.total || 0), // treat as cost
           gst_percent: parseGst(p.gst),
           raw: p,
         }));
@@ -92,14 +93,16 @@ export default function SalesForm({ sale, onSubmitted }) {
               hsn_code: product?.hsn_code || r.hsn_code || "",
               available: product?.available ?? 0,
               qty: Number(r.qty) || 1,
-              rate: Number(r.rate ?? product?.rate ?? 0),
+              cost_rate: Number(product?.cost_rate ?? 0),
+              rate: Number(r.rate ?? 0),
+              manualRate: true,
               d1_percent: Number(r.discount_rate) || 0,
               per_size_disc: Number(r.per_size_disc || 0),
               gst_percent: Number(r.gst_percent ?? product?.gst_percent ?? 0),
               unit: r.unit || "PCS",
             };
           });
-          setRows(mapped.length ? mapped : [{ product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS" }]);
+          setRows(mapped.length ? mapped : [{ product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, cost_rate: 0, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS", manualRate: false }]);
         } else {
           const { data } = await salesAPI.getNewBillNo();
           setHeader((prev) => ({
@@ -112,7 +115,6 @@ export default function SalesForm({ sale, onSubmitted }) {
           }));
         }
       } catch (e) {
-        // toast.error("Failed to load form data");
         Swal.fire({ icon: "error", title: "Failed to load", text: "Failed to load form data" });
       } finally {
         setLoading(false);
@@ -138,10 +140,21 @@ export default function SalesForm({ sale, onSubmitted }) {
     setHeader((p) => ({ ...p, [name]: value }));
   };
 
+  const recomputeSellingRate = (row) => {
+    const q = Number(row.qty) || 0;
+    const cost = Number(row.cost_rate) || 0;
+    const mPct = getMarginPercentByQty(q);
+    if (useCostMargin && !row.manualRate) {
+      const selling = cost * (1 + mPct / 100);
+      return Number.isFinite(selling) ? selling : 0;
+    }
+    return row.rate || 0;
+  };
+
   const onRow = (i, field, value) => {
     setRows((prev) => {
       const next = [...prev];
-      const numeric = ["qty", "rate", "d1_percent", "gst_percent", "per_size_disc"];
+      const numeric = ["qty", "rate", "d1_percent", "gst_percent", "per_size_disc", "cost_rate"];
       let v = value;
       if (numeric.includes(field)) v = value === "" ? 0 : Number(value);
       next[i] = { ...next[i], [field]: v };
@@ -150,12 +163,15 @@ export default function SalesForm({ sale, onSubmitted }) {
         const product = products.find((p) => String(p.id) === String(value));
         next[i].item_name = product?.product_name || "";
         next[i].hsn_code = product?.hsn_code || "";
-        next[i].rate = Number(product?.rate || 0);               // from product.total
-        next[i].gst_percent = Number(product?.gst_percent || 0);  // parsed from product.gst
+        next[i].cost_rate = Number(product?.cost_rate || 0);
+        next[i].gst_percent = Number(product?.gst_percent || 0);
         next[i].unit = "PCS";
-        next[i].available = Number(product?.available || 0);      // Available Qty
+        next[i].available = Number(product?.available || 0);
         next[i].qty = 1;
-        next[i].per_size_disc = 0;                                // reset per-qty discount on change
+        next[i].per_size_disc = 0;
+        next[i].d1_percent = 0;
+        next[i].manualRate = false;
+        next[i].rate = recomputeSellingRate(next[i]);
       }
 
       if (field === "qty") {
@@ -163,42 +179,34 @@ export default function SalesForm({ sale, onSubmitted }) {
         const q = Number(next[i].qty || 0);
         if (q > avail) {
           next[i].qty = avail;
-          // toast.info("Qty limited to available stock");
           Swal.fire({ icon: "info", title: "Stock limit", text: "Qty limited to available stock" });
         } else if (q < 1) {
           next[i].qty = 1;
         }
+        if (useCostMargin && !next[i].manualRate) {
+          next[i].rate = recomputeSellingRate(next[i]);
+        }
+      }
+
+      if (field === "rate") {
+        next[i].manualRate = true;
+      }
+
+      if (field === "cost_rate" && useCostMargin && !next[i].manualRate) {
+        next[i].rate = recomputeSellingRate(next[i]);
       }
 
       return next;
     });
   };
 
-  const addRow = () =>
-    setRows((p) => [
-      ...p,
-      { product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS" },
-    ]);
-
-  const removeRow = async (idx) => {
-    const res = await Swal.fire({
-      title: "Remove this row?",
-      text: "This item will be removed from the sale.",
-      icon: "warning",
-      showCancelButton: true,
-      confirmButtonText: "Remove",
-      cancelButtonText: "Cancel",
-      confirmButtonColor: "#dc2626",
-    });
-    if (!res.isConfirmed) return;
-    setRows((p) => p.filter((_, i) => i !== idx));
-  };
-
   const calc = (r) => {
-    const base = (Number(r.qty) || 0) * (Number(r.rate) || 0);
-    const pctDiscPerUnit = ((Number(r.rate) || 0) * (Number(r.d1_percent) || 0)) / 100;
-    const pctDiscTotal = (Number(r.qty) || 0) * pctDiscPerUnit;
-    const perQtyDisc = Number(r.per_size_disc || 0); // NEW
+    const qty = Number(r.qty) || 0;
+    const rate = Number(r.rate) || 0;
+    const base = qty * rate;
+    const pctDiscPerUnit = (rate * (Number(r.d1_percent) || 0)) / 100;
+    const pctDiscTotal = qty * pctDiscPerUnit;
+    const perQtyDisc = Number(r.per_size_disc || 0);
     const totalDisc = perQtyDisc + pctDiscTotal;
     const taxable = Math.max(base - totalDisc, 0);
     const gstAmt = (taxable * (Number(r.gst_percent) || 0)) / 100;
@@ -234,7 +242,6 @@ export default function SalesForm({ sale, onSubmitted }) {
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!isFormValid) {
-      // toast.error("Please fill required fields");
       Swal.fire({ icon: "error", title: "Required fields missing", text: "Please fill required fields" });
       return;
     }
@@ -243,7 +250,6 @@ export default function SalesForm({ sale, onSubmitted }) {
 
       const bad = rows.find((r) => Number(r.qty) > Number(r.available || 0));
       if (bad) {
-        // toast.error("Quantity exceeds available stock");
         Swal.fire({ icon: "error", title: "Stock exceeded", text: "Quantity exceeds available stock" });
         setLoading(false);
         return;
@@ -270,20 +276,10 @@ export default function SalesForm({ sale, onSubmitted }) {
 
       if (isEditMode) {
         await salesAPI.update(sale.id, payload);
-        await Swal.fire({
-          icon: "success",
-          title: "Sale updated",
-          text: "Sale updated successfully",
-          confirmButtonColor: "#2563eb",
-        });
+        await Swal.fire({ icon: "success", title: "Sale updated", text: "Sale updated successfully", confirmButtonColor: "#2563eb" });
       } else {
         await salesAPI.create(payload);
-        await Swal.fire({
-          icon: "success",
-          title: "Sale created",
-          text: "Sale created successfully",
-          confirmButtonColor: "#2563eb",
-        });
+        await Swal.fire({ icon: "success", title: "Sale created", text: "Sale created successfully", confirmButtonColor: "#2563eb" });
       }
 
       setHeader({
@@ -298,16 +294,10 @@ export default function SalesForm({ sale, onSubmitted }) {
         payment_method: "Cash",
         status: "Active",
       });
-      setRows([{ product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS" }]);
-      if (onSubmitted) onSubmitted();
+      setRows([{ product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, cost_rate: 0, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS", manualRate: false }]);
+      onSubmitted && onSubmitted();
     } catch (e) {
-      // toast.error(e?.response?.data?.error || "Failed to save sale");
-      Swal.fire({
-        icon: "error",
-        title: "Failed to save",
-        text: e?.response?.data?.error || "Failed to save sale",
-        confirmButtonColor: "#dc2626",
-      });
+      Swal.fire({ icon: "error", title: "Failed to save", text: e?.response?.data?.error || "Failed to save sale", confirmButtonColor: "#dc2626" });
     } finally {
       setLoading(false);
     }
@@ -328,8 +318,12 @@ export default function SalesForm({ sale, onSubmitted }) {
     <form onSubmit={onSubmit} className="bg-white shadow-lg rounded-xl p-6 mb-6">
       <h2 className="text-xl font-bold mb-4">{isEditMode ? "Update Sale" : "Create Sale"}</h2>
 
-      {/* header top same as before */}
       <div className="grid grid-cols-4 gap-4">
+        <div className="flex items-center gap-2">
+          <input id="useCostMargin" type="checkbox" checked={useCostMargin} onChange={(e)=>setUseCostMargin(e.target.checked)} />
+          <label htmlFor="useCostMargin" className="text-sm text-gray-700">Use cost-based margin</label>
+        </div>
+
         <div className="flex flex-col">
           <label htmlFor="date" className="text-sm text-gray-600 mb-1">Date</label>
           <input id="date" type="date" className="border p-2 rounded-lg" value={header.date} onChange={(e) => setHeader((p) => ({ ...p, date: e.target.value }))} />
@@ -373,11 +367,10 @@ export default function SalesForm({ sale, onSubmitted }) {
         </div>
       </div>
 
-      {/* items */}
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-full border text-xs">
           <thead>
-            <tr className={`${COLORS.headerBg} ${COLORS.headerText}`}>
+            <tr className={`${"bg-green-700"} ${"text-white"}`}>
               <th className="px-2 py-2 border text-center w-10">Sl</th>
               <th className="px-2 py-2 border text-left">Item Name</th>
               <th className="px-2 py-2 border text-left">HSNCode</th>
@@ -396,9 +389,11 @@ export default function SalesForm({ sale, onSubmitted }) {
           </thead>
           <tbody>
             {rows.map((r, i) => {
-              const base = (Number(r.qty) || 0) * (Number(r.rate) || 0);
-              const pctDiscPerUnit = ((Number(r.rate) || 0) * (Number(r.d1_percent) || 0)) / 100;
-              const pctDiscTotal = (Number(r.qty) || 0) * pctDiscPerUnit;
+              const qty = Number(r.qty) || 0;
+              const rate = Number(r.rate) || 0;
+              const base = qty * rate;
+              const pctDiscPerUnit = (rate * (Number(r.d1_percent) || 0)) / 100;
+              const pctDiscTotal = qty * pctDiscPerUnit;
               const perQtyDisc = Number(r.per_size_disc || 0);
               const totalDisc = perQtyDisc + pctDiscTotal;
               const taxable = Math.max(base - totalDisc, 0);
@@ -406,167 +401,163 @@ export default function SalesForm({ sale, onSubmitted }) {
               const finalAmt = taxable + gstAmt;
 
               return (
-                <tr key={i} className={`${COLORS.rowAlt}`}>
+                <tr key={i} className={`odd:bg-white even:bg-gray-50`}>
                   <td className="px-2 py-1 border text-center">{i + 1}</td>
 
                   <td className="px-2 py-1 border">
-                    <select
-                      className={`${COLORS.input}`}
-                      value={r.product_id}
-                      onChange={(e) => onRow(i, "product_id", e.target.value)}
-                    >
+                    <select className={`border rounded w-full h-8 px-2 text-xs`} value={r.product_id} onChange={(e) => onRow(i, "product_id", e.target.value)}>
                       <option value="">Select</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id}>{p.product_name}</option>
-                      ))}
+                      {products.map((p) => (<option key={p.id} value={p.id}>{p.product_name}</option>))}
                     </select>
                   </td>
 
-                  <td className="px-2 py-1 border bg-gray-100 cursor-not-allowd">
-                    <input
-                      readOnly
-                      className={`${COLORS.input}`}
-                      value={r.hsn_code}
-                      onChange={(e) => onRow(i, "hsn_code", e.target.value)}
-                    />
+                  <td className="px-2 py-1 border bg-gray-100">
+                    <input readOnly className={`border rounded w-full h-8 px-2 text-xs`} value={r.hsn_code} />
                   </td>
 
                   <td className="px-2 py-1 border text-green-800 text-center">
-                    <span className={COLORS.badge}>{r.available ?? 0}</span>
+                    <span className={"font-semibold"}>{r.available ?? 0}</span>
                   </td>
 
                   <td className="px-2 py-1 border text-center">
-                    <input
-                      type="number"
-                      min={1}
-                      max={Number(r.available || 0)}
-                      className="border rounded w-14 h-8 px-2 text-center text-xs"
-                      value={r.qty}
-                      onChange={(e) => onRow(i, "qty", e.target.value)}
-                    />
+                    <input type="number" min={1} max={Number(r.available || 0)} className="border rounded w-14 h-8 px-2 text-center text-xs" value={r.qty} onChange={(e) => onRow(i, "qty", e.target.value)} />
                   </td>
 
-                  <td className="px-2 py-1 border text-right cursor-not-allowd bg-gray-100">
-                    <input
-                      readOnly
-                      type="number"
-                      className={`${COLORS.inputNumWide}`}
-                      value={r.rate}
-                      onChange={(e) => onRow(i, "rate", e.target.value)}
-                    />
+<td className="px-2 py-1 border text-right">
+  <input
+    type="number"
+    className={`border rounded w-20 h-8 px-2 text-right text-xs`}
+    value={r.rate}
+    onChange={(e) => onRow(i, "rate", e.target.value)}
+  />
+  <div className="text-[10px] text-gray-500 text-right">
+    {useCostMargin && !r.manualRate
+      ? `Margin: ${getRowMarginPercent(r)}% (auto)`
+      : "Manual rate"}
+  </div>
+</td>
+
+
+                  <td className="px-2 py-1 border text-right">
+                    <span className={"font-semibold"}>{fx(base)}</span>
                   </td>
 
                   <td className="px-2 py-1 border text-right">
-                    <span className={COLORS.badge}>{Number(base).toFixed(3)}</span>
+                    <input type="number" className={`border rounded w-16 h-8 px-2 text-right text-xs`} value={r.d1_percent} onChange={(e) => onRow(i, "d1_percent", e.target.value)} />
                   </td>
 
                   <td className="px-2 py-1 border text-right">
-                    <input
-                      type="number"
-                      className={`${COLORS.inputNum}`}
-                      value={r.d1_percent}
-                      onChange={(e) => onRow(i, "d1_percent", e.target.value)}
-                    />
+                    <input type="text" className="border rounded p-1 w-20 text-right" value={fx(pctDiscTotal)} readOnly />
                   </td>
 
                   <td className="px-2 py-1 border text-right">
-                    <input
-                      type="text"
-                      className="border rounded p-1 w-20  text-right "
-                      value={(() => {
-                        const rate = Number(r.rate) || 0;
-                        const pct = Number(r.d1_percent) || 0;
-                        const qty = Number(r.qty) || 0;
-                        const perUnitDisc = (rate * pct) / 100;
-                        const perQtyDiscCalc = perUnitDisc * qty;
-                        return Number(perQtyDiscCalc).toFixed(3);
-                      })()}
-                      readOnly
-                    />
+                    <span className={"font-semibold"}>{fx(totalDisc)}</span>
                   </td>
 
                   <td className="px-2 py-1 border text-right">
-                    <span className={COLORS.badge}>{Number(totalDisc).toFixed(3)}</span>
+                    <input type="number" className={`border rounded w-16 h-8 px-2 text-right text-xs`} value={r.gst_percent} onChange={(e) => onRow(i, "gst_percent", e.target.value)} />
                   </td>
 
                   <td className="px-2 py-1 border text-right">
-                    <input
-                      type="number"
-                      className={`${COLORS.inputNum}`}
-                      value={r.gst_percent}
-                      onChange={(e) => onRow(i, "gst_percent", e.target.value)}
-                    />
+                    <span className={"font-semibold"}>{fx(gstAmt)}</span>
                   </td>
 
                   <td className="px-2 py-1 border text-right">
-                    <span className={COLORS.badge}>{Number(gstAmt).toFixed(3)}</span>
-                  </td>
-
-                  <td className="px-2 py-1 border text-right">
-                    <span className={COLORS.badge}>{Number(finalAmt).toFixed(3)}</span>
+                    <span className={"font-semibold"}>{fx(finalAmt)}</span>
                   </td>
 
                   <td className="px-2 py-1 border text-center">
-                    <button
-                      className="h-8 w-8 grid place-items-center rounded-full bg-red-100 text-red-600 hover:bg-red-200"
-                      onClick={async (ev) => { ev.preventDefault(); await removeRow(i); }}
-                      title="Remove"
-                    >
-                      ×
-                    </button>
+                    <button className="h-8 w-8 grid place-items-center rounded-full bg-red-100 text-red-600 hover:bg-red-200" onClick={async (ev) => { ev.preventDefault();
+                      const res = await Swal.fire({ title: "Remove this row?", text: "This item will be removed from the sale.", icon: "warning", showCancelButton: true, confirmButtonText: "Remove", cancelButtonText: "Cancel", confirmButtonColor: "#dc2626" });
+                      if (res.isConfirmed) setRows((p)=>p.filter((_,idx)=>idx!==i));
+                    }} type="button" title="Remove">×</button>
                   </td>
                 </tr>
               );
             })}
-            {/* Totals row */}
-            <tr className="bg-gray-100">
-              <td className="px-2 py-2 border" colSpan={6}>
-                Totals
-              </td>
+
+            {/* <tr className="bg-gray-100">
+              <td className="px-2 py-2 border" colSpan={6}>Totals</td>
               <td className="px-2 py-2 border text-right">
-                <span className={COLORS.badge}>{Number(rows.reduce((a,r)=>a+((Number(r.qty)||0)*(Number(r.rate)||0)),0)).toFixed(3)}</span>
+                <span className={"font-semibold"}>{fx(rows.reduce((a,r)=>a+((Number(r.qty)||0)*(Number(r.rate)||0)),0))}</span>
               </td>
               <td className="px-2 py-2 border text-center">—</td>
               <td className="px-2 py-2 border text-right">
-                <span className={COLORS.badge}>{Number(rows.reduce((a,r)=>{
-                  const perUnit=((Number(r.rate)||0)*(Number(r.d1_percent)||0))/100*(Number(r.qty)||0);
-                  const perQty = Number(r.per_size_disc || 0);
-                  return a + perUnit + perQty;
-                },0)).toFixed(3)}</span>
+                <span className={"font-semibold"}>{fx(rows.reduce((a,r)=>{
+                  const rate = Number(r.rate)||0;
+                  const pct = Number(r.d1_percent)||0;
+                  const qty = Number(r.qty)||0;
+                  const perUnitDisc = (rate * pct)/100;
+                  const perUnitTotal = perUnitDisc * qty;
+                  const perQty = Number(r.per_size_disc||0);
+                  return a + perUnitTotal + perQty;
+                },0))}</span>
               </td>
               <td className="px-2 py-2 border text-center">—</td>
               <td className="px-2 py-2 border text-right">
-                <span className={COLORS.badge}>{Number(rows.reduce((a,r)=>{
+                <span className={"font-semibold"}>{fx(rows.reduce((a,r)=>{
                   const base=(Number(r.qty)||0)*(Number(r.rate)||0);
-                  const perUnit=( (Number(r.rate)||0)*(Number(r.d1_percent)||0) )/100*(Number(r.qty)||0);
+                  const perUnit=((Number(r.rate)||0)*(Number(r.d1_percent)||0))/100*(Number(r.qty)||0);
                   const perQty=Number(r.per_size_disc||0);
                   const taxable=Math.max(base - (perUnit+perQty),0);
                   const gstAmt=(taxable*(Number(r.gst_percent)||0))/100;
                   return a + gstAmt;
-                },0)).toFixed(3)}</span>
+                },0))}</span>
               </td>
               <td className="px-2 py-2 border text-right">
-                <span className={COLORS.badge}>{Number(rows.reduce((a,r)=>{
+                <span className={"font-semibold"}>{fx(rows.reduce((a,r)=>{
                   const base=(Number(r.qty)||0)*(Number(r.rate)||0);
-                  const perUnit=( (Number(r.rate)||0)*(Number(r.d1_percent)||0) )/100*(Number(r.qty)||0);
+                  const perUnit=((Number(r.rate)||0)*(Number(r.d1_percent)||0))/100*(Number(r.qty)||0);
                   const perQty=Number(r.per_size_disc||0);
                   const taxable=Math.max(base - (perUnit+perQty),0);
                   const gstAmt=(taxable*(Number(r.gst_percent)||0))/100;
                   return a + taxable + gstAmt;
-                },0)).toFixed(3)}</span>
+                },0))}</span>
               </td>
               <td className="px-2 py-2 border"></td>
-            </tr>
+            </tr> */}
           </tbody>
-          <tfoot>
-            <tr>
-              <td className="px-2 py-1 border" colSpan={13}>
-                <button className="px-2 py-1 bg-gray-200 rounded text-xs" onClick={(e)=>{e.preventDefault(); addRow();}} type="button">
-                  Add Row
-                </button>
-              </td>
-            </tr>
-          </tfoot>
+<tfoot>
+  <tr className="bg-gray-100 font-semibold text-right text-xs">
+    <td className="px-2 py-2 border text-center"></td>
+    <td className="px-2 py-2 border text-left">Totals</td>
+    <td className="px-2 py-2 border text-left"></td>
+    <td className="px-2 py-2 border text-center"></td>
+    <td className="px-2 py-2 border text-center">
+      {fx(rows.reduce((a,r)=>a+Number(r.qty||0),0))}
+    </td>
+    <td className="px-2 py-2 border text-right">
+      {fx(rows.reduce((a,r)=>a+Number(r.rate||0),0))}
+    </td>
+    <td className="px-2 py-2 border text-right">{fx(totals.base)}</td>
+    <td className="px-2 py-2 border text-right"></td>
+    <td className="px-2 py-2 border text-right">{fx(totals.pctDisc)}</td>
+    <td className="px-2 py-2 border text-right">{fx(totals.disc)}</td>
+    <td className="px-2 py-2 border text-right"></td>
+    <td className="px-2 py-2 border text-right">{fx(totals.gst)}</td>
+    <td className="px-2 py-2 border text-right">{fx(totals.final)}</td>
+    <td className="px-2 py-2 border text-center">
+      
+    </td>
+  </tr>
+  <tr>
+    <td className="px-2 py-1 border" colSpan={13}>
+      <button
+        className="px-2 py-1 bg-gray-200 rounded text-xs"
+        onClick={(e)=>{e.preventDefault(); setRows((p)=>[...p,{
+          product_id:"", item_name:"", hsn_code:"", available:0, qty:1,
+          cost_rate:0, rate:0, d1_percent:0, per_size_disc:0, gst_percent:0,
+          unit:"PCS", manualRate:false
+        }])}}
+        type="button"
+      >
+        Add Row
+      </button>
+    </td>
+  </tr>
+</tfoot>
+
+
         </table>
       </div>
 
@@ -576,7 +567,7 @@ export default function SalesForm({ sale, onSubmitted }) {
         </button>
         <button type="button" className="px-4 py-2 bg-gray-200 rounded-lg" onClick={() => {
           setHeader((p) => ({ ...p, terms_condition: "" }));
-          setRows([{ product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS" }]);
+          setRows([{ product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, cost_rate: 0, rate: 0, d1_percent: 0, per_size_disc: 0, gst_percent: 0, unit: "PCS", manualRate: false }]);
         }}>
           Reset
         </button>
@@ -584,4 +575,3 @@ export default function SalesForm({ sale, onSubmitted }) {
     </form>
   );
 }
-

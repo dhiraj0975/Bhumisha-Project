@@ -81,10 +81,9 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
             <thead>
               <tr className="bg-gray-100">
                 <th className="p-2 border">Sl.No.</th>
+                <th className="p-2 border">Bill No</th>   
                 <th className="p-2 border">Customer</th>
-                <th className="p-2 border">Bill No</th>    
                 <th className="p-2 border">Date</th>
-                {/* <th className="p-2 border">Customer</th> */}
                 <th className="p-2 border">Amount</th>
                 <th className="p-2 border">Payment</th>
                 <th className="p-2 border">Method</th>
@@ -97,13 +96,7 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
     <tr key={r.id} className="hover:bg-gray-50">
       <td className="p-2 border">{idx + 1}</td>
 
-      {/* Customer name: plain text (no blue, no underline, no click) */}
-      <td className="p-2 border">
-        <span className="text-gray-900">{r.customer_name}</span>
-      </td>
-
-      {/* Bill no.: clickable blue text with underline, triggers details */}
-      <td className="p-2 border">
+            <td className="p-2 border">
         <button
           type="button"
           onClick={() => onDetails?.(r.id)}
@@ -113,6 +106,14 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
           {r.bill_no}
         </button>
       </td>
+
+      {/* Customer name: plain text (no blue, no underline, no click) */}
+      <td className="p-2 border">
+        <span className="text-gray-900">{r.customer_name}</span>
+      </td>
+
+      {/* Bill no.: clickable blue text with underline, triggers details */}
+
 
       <td className="p-2 border">{r.bill_date}</td>
 
@@ -170,7 +171,7 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
   )}
 </tbody>
  
- 
+
           </table>
         </div>
       )}
