@@ -119,7 +119,7 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
 
       <td className="p-2 border">
         {Number(r.total_amount || 0).toFixed(2)}
-      </td>
+      </td> 
 
       <td className="p-2 border">
         <span
