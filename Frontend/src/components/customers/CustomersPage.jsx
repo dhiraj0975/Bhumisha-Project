@@ -1070,7 +1070,7 @@ export default function CustomersPage() {
                 }}
               > 
                 Apply
-              </button>
+              </button> 
             </div>
 
             <div className="px-5 py-3 grid grid-cols-5 gap-3 border-b bg-gray-50">
