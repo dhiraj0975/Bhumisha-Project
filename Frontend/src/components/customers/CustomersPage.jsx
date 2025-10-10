@@ -1068,7 +1068,7 @@ export default function CustomersPage() {
                   setStPage(1);
                   if (activeCustomer) fetchStatement(activeCustomer.id, stFrom, stTo, 1, stLimit, stSort);
                 }}
-              >
+              > 
                 Apply
               </button>
             </div>
