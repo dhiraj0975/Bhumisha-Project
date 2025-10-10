@@ -23,8 +23,8 @@ const paymentsAPI = {
 
   // GET customer ledger
   getLedgerByCustomer: (customer_id) =>
-    api.get(`/sale-payments/ledger/${customer_id}`),
-
+    api.get(`/sale-payments/ledger/${customer_id}`), 
+ 
   // GET customer summary
   getSummaryByCustomer: (customer_id) =>
     api.get(`/sale-payments/summary/${customer_id}`),
