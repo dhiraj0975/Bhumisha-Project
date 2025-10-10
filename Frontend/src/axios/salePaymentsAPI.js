@@ -34,4 +34,4 @@ const paymentsAPI = {
 };
 
 export default paymentsAPI;  
- 
+  
