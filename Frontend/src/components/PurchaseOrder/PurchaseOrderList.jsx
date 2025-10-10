@@ -130,37 +130,73 @@ const PurchaseOrderList = ({ onEdit }) => {
                   <td className="border p-2 text-right">{fx(po?.summary?.total_taxable ?? po.total_taxable ?? 0)}</td>
                   <td className="border p-2 text-right">{fx(po?.summary?.total_gst ?? po.total_gst ?? 0)}</td>
                   <td className="border p-2 text-right font-semibold">{fx(po?.summary?.grand_total ?? po.final_amount ?? 0)}</td>
-                  <td className="border p-2 space-x-2">
-                    <button
-                      className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 active:scale-95"
-                      onClick={() => openModal(po)}
-                      title="View items"
-                    >
-                      Items
-                    </button>
-                    <button
-                      className="px-3 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 active:scale-95"
-                      onClick={() => onEdit && onEdit(po)}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 active:scale-95"
-                      onClick={() => {
-                        if (window.confirm("Delete this PO?")) {
-                          dispatch(deletePurchaseOrder(poId)).then(() => dispatch(fetchPurchaseOrders()));
-                        }
-                      }}
-                    >
-                      Delete
-                    </button>
-                    <button
-                      className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 active:scale-95"
-                      onClick={() => (window.location.href = `/invoice/${poId}`)}
-                    >
-                      Invoice
-                    </button>
-                  </td>
+<td className="border p-2">
+  <div className="flex items-center gap-2">
+    {/* Items (View) */}
+    <button
+      className="p-2 rounded hover:bg-gray-100 cursor-pointer active:scale-95"
+      onClick={() => openModal(po)}
+      title="View items"
+      aria-label="View items"
+    >
+      {/* Eye icon */}
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path strokeWidth="1.8" d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+        <circle cx="12" cy="12" r="3" strokeWidth="1.8" />
+      </svg>
+    </button>
+
+    {/* Edit */}
+    <button
+      className="p-2 rounded hover:bg-yellow-50 cursor-pointer active:scale-95"
+      onClick={() => onEdit && onEdit(po)}
+      title="Edit"
+      aria-label="Edit"
+    >
+      {/* Pencil icon */}
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path strokeWidth="1.8" d="M12 20h9" />
+        <path strokeWidth="1.8" d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+      </svg>
+    </button>
+
+    {/* Delete */}
+    <button
+      className="p-2 rounded hover:bg-red-50 cursor-pointer active:scale-95"
+      onClick={() => {
+        if (window.confirm("Delete this PO?")) {
+          dispatch(deletePurchaseOrder(poId)).then(() => dispatch(fetchPurchaseOrders()));
+        }
+      }}
+      title="Delete"
+      aria-label="Delete"
+    >
+      {/* Trash icon */}
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path strokeWidth="1.8" d="M3 6h18" />
+        <path strokeWidth="1.8" d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        <path strokeWidth="1.8" d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+        <path strokeWidth="1.8" d="M10 11v6M14 11v6" />
+      </svg>
+    </button>
+
+    {/* Invoice */}
+    <button
+      className="p-2 rounded hover:bg-blue-50 cursor-pointer active:scale-95"
+      onClick={() => (window.location.href = `/invoice/${poId}`)}
+      title="Invoice"
+      aria-label="Invoice"
+    >
+      {/* Document icon */}
+      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+        <path strokeWidth="1.8" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path strokeWidth="1.8" d="M14 2v6h6" />
+        <path strokeWidth="1.8" d="M8 13h8M8 17h5M8 9h3" />
+      </svg>
+    </button>
+  </div>
+</td>
+
                 </tr>
               );
             })}
@@ -182,18 +218,27 @@ const PurchaseOrderList = ({ onEdit }) => {
           />
           {/* Card */}
           <div className="relative z-10 w-[95vw] max-w-5xl max-h-[90vh] overflow-auto bg-white rounded-xl shadow-xl">
-            <div className="flex items-center justify-between px-5 py-3 border-b">
-              <h4 className="text-lg font-semibold">
-                PO Details — {selectedPO.po_no || selectedPO.id}
-              </h4>
-              <button
-                className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 active:scale-95"
-                onClick={closeModal}
-                aria-label="Close"
-              >
-                Close
-              </button>
-            </div>
+<div className="flex items-center justify-between px-5 py-3 border-b">
+  <h4 className="text-lg font-semibold">
+    PO Details — {selectedPO.po_no || selectedPO.id}
+  </h4>
+  <div className="flex items-center gap-2 no-print">
+    <button
+      className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 active:scale-95"
+      onClick={() => window.print()}
+    >
+      Print
+    </button>
+    <button
+      className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 active:scale-95"
+      onClick={closeModal}
+      aria-label="Close"
+    >
+      Close
+    </button>
+  </div>
+</div>
+
 
             {/* Header grid */}
             <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
