@@ -435,7 +435,7 @@ const purchaseController = {
           }
         }
 
-        // Delete removed items and decrement their size from stock
+  // Delete removed items and decrement their size from stock
         const toDelete = existingIds.filter((eid) => !incomingIds.includes(eid));
         if (toDelete.length > 0) {
           for (const delId of toDelete) {
@@ -459,6 +459,20 @@ const purchaseController = {
           }
         }
       }
+
+        // Recalculate total_amount from incoming items and update purchases table
+        try {
+          const newTotal = Array.isArray(items)
+            ? items.reduce((s, it) => s + Number(it.rate || 0) * Number(it.size || 0), 0)
+            : null;
+          if (newTotal !== null) {
+            await connection.query(`UPDATE purchases SET total_amount=? WHERE id=?`, [newTotal, id]);
+          }
+        } catch (e) {
+          await connection.query("ROLLBACK");
+          console.error("Failed to update total_amount after syncing items", e);
+          return res.status(500).json({ error: "Failed to update purchase total" });
+        }
 
       await connection.query("COMMIT");
       res.json({ message: "Purchase updated successfully" });
