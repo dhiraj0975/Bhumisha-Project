@@ -155,6 +155,13 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
       </Link>
 
 
+      <Link to="/sales-orders" className={linkClass("/sales-orders")}>
+  <Sticker label="Sales Orders" symbol="➕" decorative={collapsed ? false : true} />
+  {!collapsed && "Sales Orders"}
+     </Link>
+
+
+
         <Link to="/purchases" className={linkClass("/purchases")}>
           <Sticker label="Purchases" symbol="🛒" decorative={collapsed ? false : true} />
           {!collapsed && "Purchases"}

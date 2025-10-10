@@ -13,6 +13,7 @@ const customerRouter = require("./routes/customer.routes");
 const salesRoutes = require("./routes/sales.routes");
 const salePaymentsRoutes = require("./routes/salePayments.routes");
 const PurchaseOrderRouter = require("./routes/purchaseOrder.routes");
+const SalesOrderRouter = require("./routes/salesOrder.routes");
 
 
 // ===============  Middleware for CORS =================
@@ -41,6 +42,7 @@ app.use("/api/purchase", purchaseRoutes);
 app.use("/api/purchase-orders", PurchaseOrderRouter);
 app.use("/api/customers", customerRouter);
 app.use('/api/sales', salesRoutes);
+app.use("/api/so-orders", SalesOrderRouter);
 app.use('/api/sale-payments', salePaymentsRoutes);
 
 
