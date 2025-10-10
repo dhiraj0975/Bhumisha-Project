@@ -92,18 +92,23 @@ export default function SalesForm({ sale, onSubmitted }) {
     gst_percent: React.createRef(),
   });
   const [rowRefs, setRowRefs] = useState([makeRowRefs()]);
-  const syncRowRefs = (len) => {
+  const syncRowRefs = React.useCallback((len) => {
     setRowRefs((prev) => {
       const next = [...prev];
       while (next.length < len) next.push(makeRowRefs());
       if (next.length > len) next.length = len;
       return next;
     });
-  };
+  }, []);
 
   useEffect(() => {
     syncRowRefs(rows.length);
-  }, [rows.length]);
+  }, [rows.length, syncRowRefs]);
+
+  // Product picker modal state
+  const [productPickerRow, setProductPickerRow] = useState(null); // row index or null
+  const [productPickerQuery, setProductPickerQuery] = useState("");
+  
 
   useEffect(() => {
     const init = async () => {
@@ -194,7 +199,8 @@ export default function SalesForm({ sale, onSubmitted }) {
             cash_received: 0,
           }));
         }
-      } catch (e) {
+      } catch (err) {
+        console.error("Failed to init SalesForm", err);
         Swal.fire({ icon: "error", title: "Failed to load", text: "Failed to load form data" });
       } finally {
         setLoading(false);
@@ -536,134 +542,137 @@ export default function SalesForm({ sale, onSubmitted }) {
     <form onSubmit={onSubmit} className="bg-white shadow-lg rounded-xl p-6 mb-6">
       <h2 className="text-xl font-bold mb-4">{isEditMode ? "Update Sale" : "Create Sale"}</h2>
 
-      {/* Payment summary block */}
-      <div className="grid grid-cols-4 gap-4 mb-4">
-        <div className="flex flex-col">
-          <label className="text-sm text-gray-600 mb-1">Old Remaining</label>
-          <input readOnly className="border p-2 rounded-lg bg-gray-100" value={fx(header.old_remaining)} />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-sm text-gray-600 mb-1">Sale Total</label>
-          <input readOnly className="border p-2 rounded-lg bg-gray-100" value={fx(saleTotal)} />
-        </div>
-        <div className="flex flex-col">
-          <label htmlFor="cash_received" className="text-sm text-gray-600 mb-1">Cash Received</label>
-          <input
-            id="cash_received"
-            ref={headerRefs.cash_received}
-            type="number"
-            min={0}
-            step="0.01"
-            className="border p-2 rounded-lg"
-            value={header.cash_received}
-            onChange={(e) => onHeader({ target: { name: "cash_received", value: e.target.value } })}
-            placeholder="0.00"
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-sm text-gray-600 mb-1">Net Due</label>
-          <input readOnly className="border p-2 rounded-lg bg-gray-100" value={fx(netDue)} />
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+        {/* Left: Inputs (span 2 columns on lg) */}
+        <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4 mb-4">
+            <div className="flex flex-col">
+              <label htmlFor="date" className="text-sm text-gray-600 mb-1">Date</label>
+              <input id="date" ref={headerRefs.date} type="date" className={`border p-2 rounded-lg ${errors.header.date ? errClass : ""}`} value={header.date} onChange={(e) => onHeader({ target: { name: "date", value: e.target.value } })} />
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="sale_no" className="text-sm text-gray-600 mb-1">Bill No</label>
+              <input id="sale_no" ref={headerRefs.sale_no} className={`border p-2 rounded-lg`} value={header.sale_no} onChange={(e) => setHeader((p) => ({ ...p, sale_no: e.target.value }))} />
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="customer_id" className="text-sm text-gray-600 mb-1">Customer</label>
+              <select id="customer_id" name="customer_id" ref={headerRefs.customer_id} className={`border p-2 rounded-lg ${errors.header.customer_id ? errClass : ""}`} value={header.customer_id} onChange={onHeader}>
+                <option value="">Select Customer</option>
+                {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              </select>
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="address" className="text-sm text-gray-600 mb-1">Address</label>
+              <input id="address" ref={headerRefs.address} className="border p-2 rounded-lg" placeholder="Address" value={header.address} onChange={(e) => setHeader((p) => ({ ...p, address: e.target.value }))} />
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="mobile_no" className="text-sm text-gray-600 mb-1">Mobile No.</label>
+              <input id="mobile_no" ref={headerRefs.mobile_no} className="border p-2 rounded-lg" placeholder="Mobile" value={header.mobile_no} onChange={(e) => setHeader((p) => ({ ...p, mobile_no: e.target.value }))} />
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="gst_no" className="text-sm text-gray-600 mb-1">GST No.</label>
+              <input id="gst_no" ref={headerRefs.gst_no} className="border p-2 rounded-lg" placeholder="GST No." value={header.gst_no} onChange={(e) => setHeader((p) => ({ ...p, gst_no: e.target.value }))} />
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="old_remaining" className="text-sm text-gray-600 mb-1">Old Remaining</label>
+              <input readOnly id="old_remaining" className="border p-2 rounded-lg bg-gray-100" value={fx(header.old_remaining)} />
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="sale_total" className="text-sm text-gray-600 mb-1">Sale Total</label>
+              <input readOnly id="sale_total" className="border p-2 rounded-lg bg-gray-100" value={fx(saleTotal)} />
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="cash_received" className="text-sm text-gray-600 mb-1">Paid Amount</label>
+              <input id="cash_received" ref={headerRefs.cash_received} type="number" min={0} step="0.01" className="border p-2 rounded-lg" value={header.cash_received} onChange={(e) => onHeader({ target: { name: "cash_received", value: e.target.value } })} placeholder="0.00" />
+            </div>
+
+            <div className="flex flex-col">
+              <label htmlFor="payment_method" className="text-sm text-gray-600 mb-1">Payment Method</label>
+              <select id="payment_method" ref={headerRefs.payment_method} className="border p-2 rounded-lg" value={header.payment_method} onChange={(e) => setHeader((p) => ({ ...p, payment_method: e.target.value }))}>
+                <option>Cash</option><option>Card</option><option>Online</option><option>Credit Card</option><option>UPI</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <input id="payment_status" type="hidden" value={header.payment_status} />
+              <label className="text-sm text-gray-500">Payment Status: <span className="font-semibold">{header.payment_status}</span></label>
+            </div>
+          </div>
+
+  </div>
+
+  {/* Right: Payment summary card (span 2 cols = half width) */}
+        <div className="lg:col-span-2">
+          <div className="bg-gray-50 p-4 rounded-lg shadow-inner self-start w-auto max-w-md max-h-[50vh] overflow-auto">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Payment Summary</h3>
+            <div className="grid gap-3">
+              <div>
+                <label className="text-xs text-gray-600">Old Remaining</label>
+                <div className="text-lg font-semibold">{fx(header.old_remaining)}</div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Sale Total</label>
+                <div className="text-lg font-semibold">{fx(saleTotal)}</div>
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Cash Received</label>
+                <input id="cash_received" ref={headerRefs.cash_received} type="number" min={0} step="0.01" className="border p-2 rounded w-auto" value={header.cash_received} onChange={(e) => onHeader({ target: { name: "cash_received", value: e.target.value } })} />
+              </div>
+              <div>
+                <label className="text-xs text-gray-600">Net Due</label>
+                <div className="text-lg font-semibold">{fx(netDue)}</div>
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button type="submit" disabled={loading} className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60">{isEditMode ? "Update" : "Save"}</button>
+                <button type="button" className="flex-1 px-4 py-2 bg-gray-200 rounded-lg" onClick={() => {
+                  setHeader((p) => ({
+                    ...p,
+                    sale_no: "",
+                    date: "",
+                    customer_id: "",
+                    address: "",
+                    mobile_no: "",
+                    gst_no: "",
+                    terms_condition: "",
+                    payment_status: "Unpaid",
+                    payment_method: "Cash",
+                    status: "Active",
+                    old_remaining: 0,
+                    cash_received: 0,
+                  }));
+                  setRows([
+                    {
+                      product_id: "",
+                      item_name: "",
+                      hsn_code: "",
+                      available: 0,
+                      qty: 1,
+                      cost_rate: 0,
+                      rate: 0,
+                      d1_percent: 0,
+                      per_size_disc: 0,
+                      gst_percent: 0,
+                      unit: "PCS",
+                      manualRate: false,
+                    },
+                  ]);
+                  setErrors({ header: {}, rows: {} });
+                }}>Reset</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Header grid */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="flex items-center gap-2">
-          <input id="useCostMargin" type="checkbox" checked={true} disabled />
-          <label htmlFor="useCostMargin" className="text-sm text-gray-700">Use cost-based margin</label>
-        </div>
-
-        <div className="flex flex-col">
-          <label htmlFor="date" className="text-sm text-gray-600 mb-1">Date</label>
-          <input
-            id="date"
-            ref={headerRefs.date}
-            type="date"
-            className={`border p-2 rounded-lg ${errors.header.date ? errClass : ""}`}
-            value={header.date}
-            onChange={(e) => onHeader({ target: { name: "date", value: e.target.value } })}
-          />
-        </div>
-
-        <div className="flex flex-col">
-          <label htmlFor="customer_id" className="text-sm text-gray-600 mb-1">Customer</label>
-          <select
-            id="customer_id"
-            name="customer_id"
-            ref={headerRefs.customer_id}
-            className={`border p-2 rounded-lg ${errors.header.customer_id ? errClass : ""}`}
-            value={header.customer_id}
-            onChange={onHeader}
-          >
-            <option value="">Select Customer</option>
-            {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-          </select>
-        </div>
-
-        <div className="flex flex-col">
-          <label htmlFor="address" className="text-sm text-gray-600 mb-1">Address</label>
-          <input
-            id="address"
-            ref={headerRefs.address}
-            className="border p-2 rounded-lg"
-            placeholder="Address"
-            value={header.address}
-            onChange={(e) => setHeader((p) => ({ ...p, address: e.target.value }))}
-          />
-        </div>
-
-        <div className="flex flex-col">
-          <label htmlFor="mobile_no" className="text-sm text-gray-600 mb-1">Mobile</label>
-          <input
-            id="mobile_no"
-            ref={headerRefs.mobile_no}
-            className="border p-2 rounded-lg"
-            placeholder="Mobile"
-            value={header.mobile_no}
-            onChange={(e) => setHeader((p) => ({ ...p, mobile_no: e.target.value }))}
-          />
-        </div>
-
-        <div className="flex flex-col">
-          <label htmlFor="gst_no" className="text-sm text-gray-600 mb-1">GST No.</label>
-          <input
-            id="gst_no"
-            ref={headerRefs.gst_no}
-            className="border p-2 rounded-lg"
-            placeholder="GST No."
-            value={header.gst_no}
-            onChange={(e) => setHeader((p) => ({ ...p, gst_no: e.target.value }))}
-          />
-        </div>
-
-        <div className="flex flex-col">
-          <label htmlFor="payment_status" className="text-sm text-gray-600 mb-1">Payment Status</label>
-          <select
-            id="payment_status"
-            ref={headerRefs.payment_status}
-            className="border p-2 rounded-lg"
-            value={header.payment_status}
-            onChange={(e) => setHeader((p) => ({ ...p, payment_status: e.target.value }))}
-          >
-            <option>Unpaid</option><option>Partial</option><option>Paid</option>
-          </select>
-        </div>
-
-        <div className="flex flex-col">
-          <label htmlFor="payment_method" className="text-sm text-gray-600 mb-1">Payment Method</label>
-          <select
-            id="payment_method"
-            ref={headerRefs.payment_method}
-            className="border p-2 rounded-lg"
-            value={header.payment_method}
-            onChange={(e) => setHeader((p) => ({ ...p, payment_method: e.target.value }))}
-          >
-            <option>Cash</option><option>Card</option><option>Online</option><option>Credit Card</option><option>UPI</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Items */}
+      {/* Items (moved to full width) */}
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-full border text-xs">
           <thead>
@@ -702,15 +711,15 @@ export default function SalesForm({ sale, onSubmitted }) {
                   <td className="px-2 py-1 border text-center">{i + 1}</td>
 
                   <td className="px-2 py-1 border">
-                    <select
-                      ref={rowRefs[i]?.product_id}
-                      className={`border rounded w-full h-8 px-2 text-xs ${errors.rows[i]?.product_id ? errClass : ""}`}
-                      value={r.product_id}
-                      onChange={(e) => onRow(i, "product_id", e.target.value)}
-                    >
-                      <option value="">Select</option>
-                      {products.map((p) => (<option key={p.id} value={p.id}>{p.product_name}</option>))}
-                    </select>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => { setProductPickerRow(i); setProductPickerQuery(""); }}
+                            className={`text-left border rounded w-full h-8 px-2 text-xs ${errors.rows[i]?.product_id ? errClass : ""}`}
+                          >
+                            {r.item_name ? `${r.item_name} (${r.available ?? 0})` : "Select product"}
+                          </button>
+                        </div>
                   </td>
 
                   <td className="px-2 py-1 border bg-gray-100">
@@ -873,52 +882,60 @@ export default function SalesForm({ sale, onSubmitted }) {
           </tfoot>
         </table>
       </div>
+      
+      {/* Product picker modal (full screen) */}
+      {productPickerRow !== null && (
+        <div className="fixed inset-0 z-50 bg-white p-4 overflow-auto">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Select Product</h3>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Search product..."
+                className="border rounded px-3 py-2"
+                value={productPickerQuery}
+                onChange={(e) => setProductPickerQuery(e.target.value)}
+              />
+              <button className="px-3 py-2 bg-gray-200 rounded" onClick={() => setProductPickerRow(null)}>Close</button>
+            </div>
+          </div>
 
-      <div className="mt-6 flex gap-2">
-        <button type="submit" disabled={loading} className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-60">
-          {isEditMode ? "Update" : "Save"}
-        </button>
-        <button
-          type="button"
-          className="px-4 py-2 bg-gray-200 rounded-lg"
-          onClick={() => {
-            setHeader((p) => ({
-              ...p,
-              sale_no: "",
-              date: "",
-              customer_id: "",
-              address: "",
-              mobile_no: "",
-              gst_no: "",
-              terms_condition: "",
-              payment_status: "Unpaid",
-              payment_method: "Cash",
-              status: "Active",
-              old_remaining: 0,
-              cash_received: 0,
-            }));
-            setRows([
-              {
-                product_id: "",
-                item_name: "",
-                hsn_code: "",
-                available: 0,
-                qty: 1,
-                cost_rate: 0,
-                rate: 0,
-                d1_percent: 0,
-                per_size_disc: 0,
-                gst_percent: 0,
-                unit: "PCS",
-                manualRate: false,
-              },
-            ]);
-            setErrors({ header: {}, rows: {} });
-          }}
-        >
-          Reset
-        </button>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {products
+              .filter((p) => String(p.product_name).toLowerCase().includes(String(productPickerQuery || "").toLowerCase()))
+              .map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  className="p-3 border rounded text-left hover:bg-gray-50"
+                  onClick={() => {
+                    // select product into row
+                    setRows((prev) => {
+                      const next = [...prev];
+                      next[productPickerRow] = {
+                        ...next[productPickerRow],
+                        product_id: p.id,
+                        item_name: p.product_name,
+                        hsn_code: p.hsn_code || "",
+                        available: p.available ?? 0,
+                        cost_rate: p.cost_rate ?? 0,
+                        gst_percent: p.gst_percent ?? 0,
+                        unit: "PCS",
+                        qty: 1,
+                        rate: recomputeSellingRate({ ...(next[productPickerRow] || {}), qty: 1, cost_rate: p.cost_rate ?? 0 }),
+                      };
+                      return next;
+                    });
+                    setProductPickerRow(null);
+                  }}
+                >
+                  <div className="font-medium">{p.product_name}</div>
+                  <div className="text-xs text-gray-500">HSN: {p.hsn_code || '-'} • Avl: {p.available ?? 0}</div>
+                </button>
+              ))}
+          </div>
+        </div>
+      )}
     </form>
   );
 }

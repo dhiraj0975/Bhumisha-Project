@@ -6,6 +6,7 @@ import VendorAPI from "../../axios/vendorsAPI";
 import ProductAPI from "../../axios/productAPI";
 import { useDispatch } from "react-redux";
 import { fetchProducts } from "../../features/products/productsSlice";
+import { fetchPurchases } from "../../features/purchase/purchaseSlice";
 
 // SweetAlert2
 import Swal from "sweetalert2";
@@ -82,10 +83,9 @@ const PurchaseForm = ({ onSaved }) => {
         const m = String(now.getMonth() + 1).padStart(2, "0");
         const d = String(now.getDate()).padStart(2, "0");
         const formattedDate = `${y}-${m}-${d}`;
-        const minutes = String(now.getMinutes()).padStart(2, "0");
-        const hours = now.getHours();
-        const ampm = hours >= 12 ? "PM" : "AM";
-        let displayH = hours % 12;
+  const minutes = String(now.getMinutes()).padStart(2, "0");
+  const hours = now.getHours();
+  let displayH = hours % 12;
         if (displayH === 0) displayH = 12;
         const formattedTime = `${String(displayH).padStart(2, "0")}:${minutes}`;
 
@@ -256,6 +256,14 @@ const PurchaseForm = ({ onSaved }) => {
         await Promise.allSettled(updates);
 
         await dispatch(fetchProducts());
+
+        // Refresh purchases list so UI (table/modal) shows updated data
+        try {
+          await dispatch(fetchPurchases());
+        } catch (e) {
+          // ignore - fetchPurchases will set errors in slice if any
+          console.warn("Failed to refresh purchases after update", e);
+        }
 
         // SweetAlert2 success for Update
         await Swal.fire({

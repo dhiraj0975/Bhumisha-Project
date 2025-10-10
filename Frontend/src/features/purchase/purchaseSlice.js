@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import PurchaseAPI from "../../axios/PurchaseAPI";
+import PurchaseAPI from "../../axios/purchaseApi";
 
 // ✅ Thunks
 export const fetchPurchases = createAsyncThunk(
