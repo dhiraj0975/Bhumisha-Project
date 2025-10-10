@@ -17,3 +17,4 @@ salePaymentsRoutes.get('/summary/:customer_id', SalePaymentsController.getCustom
 
 module.exports = salePaymentsRoutes;
 
+

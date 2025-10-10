@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL, // e.g., http://localhost:5000/api
+  baseURL: import.meta.env.VITE_API_BASE_URL, // e.g., http://localhost:4000/api
   withCredentials: true,
 });
 
@@ -11,9 +11,12 @@ const customersAPI = {
   create: (data) => api.post("/customers", data),
   update: (id, data) => api.put(`/customers/${id}`, data),
   remove: (id) => api.delete(`/customers/${id}`),
-  toggleStatus: (id, currentStatus) =>
-    api.put(`/customers/${id}/toggle-status`, { currentStatus }),
+  toggleStatus: (id, currentStatus) => api.put(`/customers/${id}/toggle-status`, { currentStatus }),
   getBalance: (id) => api.get(`/customers/${id}/balance`),
+
+  // NEW
+  getStatement: (id, params) => api.get(`/customers/${id}/statement`, { params }), // {from, to, page, limit, sort}
+  getSummary: (id, params) => api.get(`/customers/${id}/summary`, { params }),     // {as_of}
 };
 
 export default customersAPI;

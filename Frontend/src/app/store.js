@@ -4,6 +4,7 @@ import farmerReducer from './../features/farmers/farmerSlice'; // 👈 naya slic
 import categoryReducer from './../features/Categories/categoiresSlice'; // 👈 naya slice import
 import productReducer from "../features/products/productsSlice";
 import purchasesReducer from "../features/purchase/purchaseSlice";
+import purchaseOrdersReducer from "../features/purchaseOrders/purchaseOrderSlice";
 
 const store = configureStore({
   reducer: {
@@ -12,8 +13,10 @@ const store = configureStore({
     categories: categoryReducer,
     products: productReducer, // ✅ Add products
     purchases: purchasesReducer,
+    purchaseOrders: purchaseOrdersReducer, 
    
   },
 });
+
 
 export default store;

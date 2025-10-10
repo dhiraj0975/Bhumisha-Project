@@ -16,6 +16,7 @@ import PurchaseEdit from "./Pages/purchase/PurchaseEdit.jsx";
 import PurchaseView from "./Pages/purchase/PurchaseView.jsx";
 import CustomersPage from "./components/customers/CustomersPage.jsx";
 import SalesPage from './components/Sales/SalesPage';
+import PurchaseOrders from "./components/PurchaseOrder/PurchaseOrders.jsx";
 
 
 export default function App() {
@@ -58,6 +59,7 @@ export default function App() {
            <Route path="/purchases/view/:poId" element={<PurchaseView />} />
            <Route path="/customers" element={<CustomersPage />} />
            <Route path="/sales" element={<SalesPage />} />
+            <Route path="/po-order" element={<PurchaseOrders />} />
 
           </Routes>
         </main>
