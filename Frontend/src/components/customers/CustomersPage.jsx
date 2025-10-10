@@ -773,7 +773,7 @@ export default function CustomersPage() {
             </div> */}
 
             <div className="flex flex-col">
-              <label htmlFor="cust_gst_percent" className="text-sm text-gray-600 mb-1">GST %</label>
+              <label htmlFor="cust_gst_percent" className="text-sm text-gray-600 mb-1">GST No.</label>
               <input
                 id="cust_gst_percent"
                 type="number"

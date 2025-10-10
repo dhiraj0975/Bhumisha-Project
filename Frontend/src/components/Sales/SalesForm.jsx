@@ -551,10 +551,10 @@ export default function SalesForm({ sale, onSubmitted }) {
               <input id="date" ref={headerRefs.date} type="date" className={`border p-2 rounded-lg ${errors.header.date ? errClass : ""}`} value={header.date} onChange={(e) => onHeader({ target: { name: "date", value: e.target.value } })} />
             </div>
 
-            <div className="flex flex-col">
+            {/* <div className="flex flex-col">
               <label htmlFor="sale_no" className="text-sm text-gray-600 mb-1">Bill No</label>
               <input id="sale_no" ref={headerRefs.sale_no} className={`border p-2 rounded-lg`} value={header.sale_no} onChange={(e) => setHeader((p) => ({ ...p, sale_no: e.target.value }))} />
-            </div>
+            </div> */}
 
             <div className="flex flex-col">
               <label htmlFor="customer_id" className="text-sm text-gray-600 mb-1">Customer</label>
@@ -590,7 +590,7 @@ export default function SalesForm({ sale, onSubmitted }) {
             </div>
 
             <div className="flex flex-col">
-              <label htmlFor="cash_received" className="text-sm text-gray-600 mb-1">Paid Amount</label>
+              <label htmlFor="cash_received" className="text-sm text-gray-600 mb-1">Pay Balance</label>
               <input id="cash_received" ref={headerRefs.cash_received} type="number" min={0} step="0.01" className="border p-2 rounded-lg" value={header.cash_received} onChange={(e) => onHeader({ target: { name: "cash_received", value: e.target.value } })} placeholder="0.00" />
             </div>
 
@@ -623,8 +623,9 @@ export default function SalesForm({ sale, onSubmitted }) {
                 <div className="text-lg font-semibold">{fx(saleTotal)}</div>
               </div>
               <div>
-                <label className="text-xs text-gray-600">Cash Received</label>
-                <input id="cash_received" ref={headerRefs.cash_received} type="number" min={0} step="0.01" className="border p-2 rounded w-auto" value={header.cash_received} onChange={(e) => onHeader({ target: { name: "cash_received", value: e.target.value } })} />
+                <label className="text-xs text-gray-600 mb-1">Paid Amount</label>
+                <br />
+                <input id="cash_received" ref={headerRefs.cash_received} type="number" min={0} step="0.01" className="border p-2 rounded" value={header.cash_received} onChange={(e) => onHeader({ target: { name: "cash_received", value: e.target.value } })} />
               </div>
               <div>
                 <label className="text-xs text-gray-600">Net Due</label>

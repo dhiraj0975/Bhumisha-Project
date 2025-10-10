@@ -84,9 +84,32 @@ export default function SalesList({ onEdit, onCreate, onDetails }) {
         return (page - 1) * PAGE_SIZE + idx + 1;
       },
     },
-    { field: "bill_no", headerName: "Bill No", flex: 1 },
+    {
+      field: "bill_no",
+      headerName: "Bill No",
+      flex: 1,
+      renderCell: (params) => (
+        <button
+          type="button"
+          onClick={() => onDetails?.(params.row.id)}
+          className="text-blue-600 underline text-left w-full truncate"
+          title={params.value}
+        >
+          {params.value || "-"}
+        </button>
+      ),
+    },
     { field: "customer_name", headerName: "Customer", flex: 1 },
-    { field: "bill_date", headerName: "Date", width: 140, renderCell: (p) => (p.value ? new Date(p.value).toLocaleDateString() : "-") },
+    // { field: "bill_date", headerName: "Date", width: 140, renderCell: (p) => (p.value ? new Date(p.value).toLocaleDateString() : "-") },
+    {
+      field: "created_at",
+      headerName: "Date",
+      width: 200,
+      renderCell: (p) => {
+        const raw = p.value || p.row?.created_at_formatted || p.row?.created_at;
+        return raw ? new Date(raw).toLocaleString() : "-";
+      },
+    },
     { field: "total_amount", headerName: "Amount", width: 120, renderCell: (p) => fx(p.value) },
     {
       field: "payment_status",
