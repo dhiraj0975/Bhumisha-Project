@@ -45,7 +45,9 @@ export default function VendorList() {
 
 const handleEdit = (vendor) => {
   dispatch(setEditingVendor(vendor));
-  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch {}
+  try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { 
+    document.body.scrollTop = 0;
+  }
 };
 
 
@@ -102,15 +104,15 @@ const handleEdit = (vendor) => {
     },
 
     // ADDED: Min Balance column
-    {
-      field: "min_balance",
-      headerName: "Min Balance",
-      width: 140,
-      renderCell: (params) => {
-        const min = Number(params.row.min_balance ?? 5000);
-        return <span className="text-gray-800">{min.toFixed(2)}</span>;
-      },
-    },
+    // {
+    //   field: "min_balance",
+    //   headerName: "Min Balance",
+    //   width: 140,
+    //   renderCell: (params) => {
+    //     const min = Number(params.row.min_balance ?? 5000);
+    //     return <span className="text-gray-800">{min.toFixed(2)}</span>;
+    //   },
+    // },
 
     {
       field: "status",
