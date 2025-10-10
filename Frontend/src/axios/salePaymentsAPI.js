@@ -33,4 +33,4 @@ const paymentsAPI = {
   // update: (id, data) => api.put(`/sale-payments/${id}`, data),
 };
 
-export default paymentsAPI;
+export default paymentsAPI; 
