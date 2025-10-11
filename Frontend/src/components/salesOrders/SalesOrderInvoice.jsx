@@ -173,7 +173,7 @@ export default function SalesInvoice() {
     if (!data) return;
     // micro delay to ensure paint before print
     setTimeout(() => window.print(), 60);
-  };
+  }; 
 
   return (
     <div className="p-4 print:p-0 bg-gray-50 min-h-screen">
