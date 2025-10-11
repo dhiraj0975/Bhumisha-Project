@@ -73,15 +73,7 @@ renderCell: (params) => {
 
 },
 
-{
-  field: "min_balance",
-  headerName: "Min Balance",
-  width: 140,
-  renderCell: (params) => {
-    const min = Number(params.row.min_balance ?? 5000);
-    return <span className="text-gray-800">{min.toFixed(2)}</span>;
-  },
-},
+// min_balance column removed from list; kept in input/form only
     { 
       field: "status", 
       headerName: "Status", 

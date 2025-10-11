@@ -328,7 +328,7 @@ const PurchaseForm = ({ onSaved }) => {
   return (
     <form onSubmit={onSubmit} className="p-3">
       {/* header */}
-      <div className="grid grid-cols-6 gap-3 border p-3 rounded">
+      <div className="grid grid-cols-6 gap-3 border p-3 overflow-auto rounded">
         <div className="flex flex-col">
           <label className="text-xs">Bill Date</label>
           <input
@@ -339,7 +339,7 @@ const PurchaseForm = ({ onSaved }) => {
             onChange={onHeader}
           />
         </div>
-        <div className="flex flex-col">
+        {/* <div className="flex flex-col">
           <label className="text-xs">BILL TIME</label>
           <div className="flex gap-1">
             <input
@@ -350,7 +350,7 @@ const PurchaseForm = ({ onSaved }) => {
               className="border rounded p-1"
             />
           </div>
-        </div>
+        </div> */}
         <div className="flex flex-col">
           <label className="text-xs">Vendor</label>
           <select

@@ -11,7 +11,6 @@ export default function SalesDetailsPanel({ id, onClose }) {
 
   useEffect(() => {
     if (!id) return;
-
     const load = async () => {
       try {
         setLoading(true);
@@ -24,7 +23,6 @@ export default function SalesDetailsPanel({ id, onClose }) {
         setLoading(false);
       }
     };
-
     load();
   }, [id]);
 
@@ -36,6 +34,7 @@ export default function SalesDetailsPanel({ id, onClose }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
   const totals = useMemo(() => {
     if (!sale?.items) return { taxable: 0, gst: 0, net: 0 };
     return sale.items.reduce(
@@ -55,24 +54,37 @@ export default function SalesDetailsPanel({ id, onClose }) {
       className="fixed inset-0 z-50 flex items-start md:items-center justify-center p-4 md:p-8"
       aria-modal="true"
       role="dialog"
+      onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" />
 
       <div
-        className="relative w-full max-w-5xl max-h-[90vh] overflow-auto bg-white shadow-xl rounded-lg z-10"
+        className="relative w-full max-w-5xl max-h-[90vh] overflow-auto bg-white shadow-xl rounded-lg z-10 sale-details-print"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-4 border-b">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b no-print">
           <h3 className="text-lg font-semibold">Sale Details</h3>
-          <button
-            className="px-3 py-1 bg-gray-200 rounded"
-            onClick={onClose}
-            aria-label="Close details"
-          >
-            Close
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 active:scale-95"
+              onClick={() => window.print()}
+              aria-label="Print"
+              title="Print"
+            >
+              Print
+            </button>
+            <button
+              className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 active:scale-95"
+              onClick={onClose}
+              aria-label="Close details"
+            >
+              Close
+            </button>
+          </div>
         </div>
 
+        {/* Body */}
         <div className="p-6">
           {loading ? (
             <div>Loading...</div>
@@ -80,7 +92,7 @@ export default function SalesDetailsPanel({ id, onClose }) {
             <div>Not found</div>
           ) : (
             <>
-              {/* Header */}
+              {/* Header grid */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
                 <div>
                   <div className="text-gray-500">Bill No</div>
@@ -166,6 +178,22 @@ export default function SalesDetailsPanel({ id, onClose }) {
             </>
           )}
         </div>
+
+        {/* Print CSS */}
+   */     <style>{`
+          @media print {
+            /* Hide everything */
+            body * { visibility: hidden; }
+            /* Show only this panel */
+            .sale-details-print, .sale-details-print * { visibility: visible; }
+            .sale-details-print { position: absolute; left: 0; top: 0; width: 100%; background: #fff; }
+            .no-print { display: none !important; }
+            @page { size: A4; margin: 12mm; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          }
+          table { border-collapse: collapse; }
+          th, td { border: 1px solid #e5e7eb; }
+        `}</style>
       </div>
     </div>
   );

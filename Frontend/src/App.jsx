@@ -19,6 +19,7 @@ import SalesPage from './components/Sales/SalesPage';
 import PurchaseOrders from "./components/PurchaseOrder/PurchaseOrders.jsx";
 import Invoice from "./components/PurchaseOrder/Invoice.jsx";
 import SalesOrders from "./components/salesOrders/SalesOrders.jsx";
+import SalesInvoice from "./components/salesOrders/SalesOrderInvoice.jsx";
 
 
 export default function App() {
@@ -63,6 +64,7 @@ export default function App() {
            <Route path="/sales" element={<SalesPage />} />
            <Route path="/po-order" element={<PurchaseOrders />} />
             <Route path="/sales-orders" element={<SalesOrders />} />
+              <Route path="/sales-invoice/:id" element={<SalesInvoice />} />
            <Route path="/invoice/:id" element={<Invoice />} />
 
           </Routes>

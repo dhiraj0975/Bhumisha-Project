@@ -30,6 +30,7 @@ const calcItem = (it) => {
 };
 
 const salesOrderController = {
+  // Create SO (header + items)
   create: async (req, res) => {
     try {
       const {
@@ -88,7 +89,7 @@ const salesOrderController = {
 
       const createdItems = [];
       for (const { raw } of computed) {
-        // Generated columns ARE computed in DB; skip passing them
+        // Generated columns DB me auto compute honge
         const data = {
           sales_order_id,
           product_id: Number(raw.product_id),
@@ -122,6 +123,7 @@ const salesOrderController = {
     }
   },
 
+  // Get all SOs (grouped + summary)
   getAll: async (_req, res) => {
     try {
       const rows = await SalesOrder.getAllRaw();
@@ -179,11 +181,13 @@ const salesOrderController = {
     }
   },
 
+  // Get single SO (head + items + computed summary)
   getById: async (req, res) => {
     try {
       const { id } = req.params;
       const headRows = await SalesOrder.getById(id);
       if (headRows.length === 0) return res.status(404).json({ message: "SO not found" });
+
       const items = await SalesOrderItem.getBySOId(id);
       const summary = items.reduce(
         (a, it) => {
@@ -194,6 +198,7 @@ const salesOrderController = {
         },
         { total_taxable: 0, total_gst: 0, grand_total: 0 }
       );
+
       return res.json({
         ...headRows[0],
         items,
@@ -209,6 +214,7 @@ const salesOrderController = {
     }
   },
 
+  // Update SO (header + upsert items)
   update: async (req, res) => {
     try {
       const { id } = req.params;
@@ -229,7 +235,7 @@ const salesOrderController = {
       if (!customer_id) return res.status(400).json({ error: "customer_id is required" });
       if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: "items are required" });
 
-      // header totals recompute (optional)
+      // recompute header totals
       let totalAmount = 0, totalGST = 0, finalAmount = 0;
       const computed = items.map((it) => {
         const c = calcItem(it);
@@ -279,6 +285,7 @@ const salesOrderController = {
     }
   },
 
+  // Delete SO (items then header)
   delete: async (req, res) => {
     try {
       const { id } = req.params;
@@ -291,42 +298,55 @@ const salesOrderController = {
     }
   },
 
-  getInvoice: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const headRows = await SalesOrder.getById(id);
-      if (headRows.length === 0) return res.status(404).json({ message: "SO not found" });
-      const head = headRows[0];
-      const items = await SalesOrderItem.getBySOId(id);
-      const summary = items.reduce(
-        (a, it) => {
-          a.total_taxable += Number(it.amount) - Number(it.discount_total);
-          a.total_gst += Number(it.gst_amount);
-          a.grand_total += Number(it.final_amount);
-          return a;
-        },
-        { total_taxable: 0, total_gst: 0, grand_total: 0 }
-      );
-      return res.json({
-        invoiceNo: `SIN-${head.id}`,
-        date: head.date,
-        customer: {
-          name: head.customer_name, // if joined in getByIdRaw; otherwise undefined
-          address: head.address,
-          gst_no: head.gst_no,
-        },
-        items,
-        summary: {
-          total_taxable: Number(summary.total_taxable.toFixed(2)),
-          total_gst: Number(summary.total_gst.toFixed(2)),
-          grand_total: Number(summary.grand_total.toFixed(2)),
-        },
-      });
-    } catch (e) {
-      console.error(e);
-      return res.status(500).json({ error: e.message });
+  // Invoice payload (customer join safe)
+// controllers/salesOrder.controller.js
+
+getInvoice: async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Deterministic head with customer
+    const headRows = await SalesOrder.getByIdWithCustomer(id);
+    if (!headRows || headRows.length === 0) {
+      return res.status(404).json({ message: "SO not found" });
     }
-  },
+    const head = headRows[0];
+
+    // Items
+    const items = await SalesOrderItem.getBySOId(id);
+
+    const summary = items.reduce(
+      (a, it) => {
+        a.total_taxable += Number(it.amount) - Number(it.discount_total);
+        a.total_gst += Number(it.gst_amount);
+        a.grand_total += Number(it.final_amount);
+        return a;
+      },
+      { total_taxable: 0, total_gst: 0, grand_total: 0 }
+    );
+
+    return res.json({
+      invoiceNo: `SIN-${head.id}`,
+      date: head.date,
+      customer: {
+        name: head.customer_name || "",
+        address: head.address,
+        gst_no: head.gst_no,
+      },
+      items,
+      summary: {
+        total_taxable: Number(summary.total_taxable.toFixed(2)),
+        total_gst: Number(summary.total_gst.toFixed(2)),
+        grand_total: Number(summary.grand_total.toFixed(2)),
+      },
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: e.message });
+  }
+},
+
+
 };
 
 module.exports = salesOrderController;
