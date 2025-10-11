@@ -105,14 +105,11 @@ export default function CreateSalesOrder({ so = null, onSaved }) {
       const next = { ...prev };
       const row = { ...next.items[i] };
       const numeric = ["qty", "rate", "d1_percent", "gst_percent", "product_id"];
-
-      // Allow empty string during typing to avoid cursor jumps
       row[name] = numeric.includes(name) ? (value === "" ? "" : Number(value)) : value;
 
       if (name === "product_id") {
         const p = products.find((x) => String(x.id ?? x._id) === String(value));
         row.hsn_code = p?.hsn_code || "";
-        // If no rate filled yet, try to take selling value field
         if ((!row.rate || row.rate === 0) && p?.value) row.rate = Number(p.value);
       }
 
@@ -152,7 +149,7 @@ export default function CreateSalesOrder({ so = null, onSaved }) {
     );
   }, [form.items]);
 
-  // Basic validation
+  // Validation
   const isValid = useMemo(() => {
     const headOk = form.so_no && Number(form.customer_id) > 0;
     const itemsOk =
@@ -179,7 +176,6 @@ export default function CreateSalesOrder({ so = null, onSaved }) {
         ? `${form.date} ${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`
         : null;
 
-      // Respect generated columns in DB
       const items = form.items.map((r) => ({
         product_id: Number(r.product_id),
         hsn_code: r.hsn_code || "",
@@ -212,7 +208,6 @@ export default function CreateSalesOrder({ so = null, onSaved }) {
       onSaved && onSaved();
 
       if (!isEditMode) {
-        // Reset clean form
         setForm({
           so_no: "",
           customer_id: "",
@@ -241,67 +236,110 @@ export default function CreateSalesOrder({ so = null, onSaved }) {
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <h3 className="text-xl font-semibold">{isEditMode ? "Edit Sales Order" : "Create Sales Order"}</h3>
+    <form onSubmit={onSubmit} className="bg-white shadow-lg rounded-xl p-6 mb-6">
+      <h3 className="text-xl font-semibold mb-3">{isEditMode ? "Edit Sales Order" : "Create Sales Order"}</h3>
 
-      {/* Header 4-per-row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-600">SO No</label>
-          <input className="border rounded p-2" name="so_no" value={form.so_no} onChange={onHeader} required />
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-600">Customer</label>
-          <select className="border rounded p-2" name="customer_id" value={form.customer_id} onChange={onHeader} required>
-            <option value="">Select customer</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-600">Date</label>
-          <input type="date" className="border rounded p-2" name="date" value={form.date} onChange={onHeader} />
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-600">Bill Time</label>
-          <div className="flex gap-2">
-            <input type="time" className="border rounded p-2 w-full" name="bill_time" value={form.bill_time} onChange={onHeader} />
-            <select name="bill_time_am_pm" className="border rounded p-2" value={form.bill_time_am_pm} onChange={onHeader}>
-              <option>AM</option>
-              <option>PM</option>
-            </select>
+      {/* Summary + Header */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start mb-4">
+        {/* Summary */}
+        <div className="lg:col-span-1">
+          <div className="bg-white border rounded-xl shadow-sm p-4">
+            <h4 className="text-sm font-semibold text-gray-800 mb-3">Order Summary</h4>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">Taxable</span>
+                <span className="font-semibold">{fx(totals.taxable)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">GST</span>
+                <span className="font-semibold">{fx(totals.gst)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">Grand Total</span>
+                <span className="text-base font-semibold">{fx(totals.final)}</span>
+              </div>
+              <div className="pt-2 border-t">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Customer</span>
+                  <span className="text-xs text-gray-800">
+                    {(() => {
+                      const c = customers.find((x) => Number(x.id) === Number(form.customer_id));
+                      return c?.name || "-";
+                    })()}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Place of Supply</span>
+                  <span className="text-xs text-gray-800">{form.place_of_supply || "-"}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col lg:col-span-2">
-          <label className="text-xs text-gray-600">Address</label>
-          <input className="border rounded p-2" name="address" value={form.address} onChange={onHeader} />
-        </div>
+        {/* Header */}
+        <div className="lg:col-span-2">
+          <div className="bg-white border rounded-xl shadow-sm p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-600">SO No</label>
+                <input className="border rounded p-2" name="so_no" value={form.so_no} onChange={onHeader} required />
+              </div>
 
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-600">Mobile</label>
-          <input className="border rounded p-2" name="mobile_no" value={form.mobile_no} onChange={onHeader} />
-        </div>
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-600">Customer</label>
+                <select className="border rounded p-2" name="customer_id" value={form.customer_id} onChange={onHeader} required>
+                  <option value="">Select customer</option>
+                  {customers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-600">GST No</label>
-          <input className="border rounded p-2" name="gst_no" value={form.gst_no} onChange={onHeader} />
-        </div>
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-600">Date</label>
+                <input type="date" className="border rounded p-2" name="date" value={form.date} onChange={onHeader} />
+              </div>
 
-        <div className="flex flex-col">
-          <label className="text-xs text-gray-600">Place of Supply</label>
-          <input className="border rounded p-2" name="place_of_supply" value={form.place_of_supply} onChange={onHeader} />
-        </div>
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-600">Bill Time</label>
+                <div className="flex gap-2">
+                  <input type="time" className="border rounded p-2 w-full" name="bill_time" value={form.bill_time} onChange={onHeader} />
+                  <select name="bill_time_am_pm" className="border rounded p-2" value={form.bill_time_am_pm} onChange={onHeader}>
+                    <option>AM</option>
+                    <option>PM</option>
+                  </select>
+                </div>
+              </div>
 
-        <div className="flex flex-col lg:col-span-3">
-          <label className="text-xs text-gray-600">Terms</label>
-          <input className="border rounded p-2" name="terms_condition" value={form.terms_condition} onChange={onHeader} />
+              <div className="flex flex-col lg:col-span-2">
+                <label className="text-xs text-gray-600">Address</label>
+                <input className="border rounded p-2" name="address" value={form.address} onChange={onHeader} />
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-600">Mobile</label>
+                <input className="border rounded p-2" name="mobile_no" value={form.mobile_no} onChange={onHeader} />
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-600">GST No</label>
+                <input className="border rounded p-2" name="gst_no" value={form.gst_no} onChange={onHeader} />
+              </div>
+
+              <div className="flex flex-col">
+                <label className="text-xs text-gray-600">Place of Supply</label>
+                <input className="border rounded p-2" name="place_of_supply" value={form.place_of_supply} onChange={onHeader} />
+              </div>
+
+              <div className="flex flex-col lg:col-span-3">
+                <label className="text-xs text-gray-600">Terms</label>
+                <input className="border rounded p-2" name="terms_condition" value={form.terms_condition} onChange={onHeader} />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -318,7 +356,6 @@ export default function CreateSalesOrder({ so = null, onSaved }) {
           });
           return (
             <div key={i} className="mb-3 border rounded p-2">
-              {/* Row 1: 4 fields */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 <select className="border rounded p-2" name="product_id" value={it.product_id} onChange={(e) => onItem(i, e)}>
                   <option value="">Select product</option>
@@ -356,7 +393,6 @@ export default function CreateSalesOrder({ so = null, onSaved }) {
                 />
               </div>
 
-              {/* Row 2: 4 controls */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-2 items-center">
                 <input
                   className="border rounded p-2"
@@ -397,6 +433,12 @@ export default function CreateSalesOrder({ so = null, onSaved }) {
                   </button>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2 text-xs text-gray-600">
+                <div>Amount: <span className="font-medium text-gray-800">{fx(c.amount)}</span></div>
+                <div>Disc Total: <span className="font-medium text-gray-800">{fx(c.discTotal)}</span></div>
+                <div>Taxable: <span className="font-medium text-gray-800">{fx(c.taxable)}</span></div>
+              </div>
             </div>
           );
         })}
@@ -410,28 +452,41 @@ export default function CreateSalesOrder({ so = null, onSaved }) {
         </button>
       </div>
 
-      {/* Totals */}
-      <div className="flex justify-end">
+      <div className="flex justify-end mt-4">
         <div className="text-right">
-          <div>
-            Taxable: <span className="font-medium">{fx(totals.taxable)}</span>
-          </div>
-          <div>
-            GST: <span className="font-medium">{fx(totals.gst)}</span>
-          </div>
+          <div>Taxable: <span className="font-medium">{fx(totals.taxable)}</span></div>
+          <div>GST: <span className="font-medium">{fx(totals.gst)}</span></div>
           <div className="font-semibold text-lg">Grand Total: {fx(totals.final)}</div>
         </div>
       </div>
 
-      {/* Submit */}
-      <div className="pt-1">
+      <div className="pt-3 flex gap-3 justify-end">
+        <button
+          type="button"
+          className="px-4 py-2 bg-gray-200 rounded"
+          onClick={() => {
+            setForm({
+              so_no: "",
+              customer_id: "",
+              date: "",
+              bill_time: "",
+              bill_time_am_pm: "PM",
+              address: "",
+              mobile_no: "",
+              gst_no: "",
+              place_of_supply: "",
+              terms_condition: "",
+              items: [{ product_id: "", hsn_code: "", qty: 1, rate: 0, d1_percent: 0, gst_percent: 0 }],
+            });
+          }}
+        >
+          Reset
+        </button>
         <button
           type="submit"
           disabled={!isValid || loading}
           className={`px-6 py-2 rounded text-white ${
-            !isValid || loading
-              ? "bg-green-700/50 cursor-not-allowed"
-              : "bg-green-700 hover:bg-green-800 active:scale-95"
+            !isValid || loading ? "bg-green-700/50 cursor-not-allowed" : "bg-green-700 hover:bg-green-800 active:scale-95"
           }`}
         >
           {isEditMode ? "Update SO" : "Create SO"}

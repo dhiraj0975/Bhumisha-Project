@@ -1,17 +1,628 @@
+// // src/pages/purchase/PurchaseForm.jsx
+// import React, { useEffect, useMemo, useState } from "react";
+// import { useParams, useNavigate } from "react-router-dom";
+// import PurchaseAPI from "../../axios/purchaseApi";
+// import VendorAPI from "../../axios/vendorsAPI";
+// import ProductAPI from "../../axios/productAPI";
+// import { useDispatch } from "react-redux";
+// import { fetchProducts } from "../../features/products/productsSlice";
+// import { fetchPurchases } from "../../features/purchase/purchaseSlice";
+
+// // SweetAlert2
+// import Swal from "sweetalert2";
+// // Optional uniform styles (can be omitted if not needed)
+// // import "sweetalert2/dist/sweetalert2.min.css";
+
+// const fx = (n) => (isNaN(n) ? "0.000" : Number(n).toFixed(3));
+
+// const to24h = (hhmm = "00:00", ampm = "PM") => {
+//   let [hh, mm] = (hhmm || "00:00").split(":").map((x) => Number(x || 0));
+//   if (ampm === "AM") {
+//     if (hh === 12) hh = 0;
+//   } else {
+//     if (hh !== 12) hh = hh + 12;
+//   }
+//   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00`;
+// };
+
+// const fromISOToTime = (iso = "") => {
+//   const hh = Number(iso?.slice(11, 13) || 0);
+//   const mm = iso?.slice(14, 16) || "00";
+//   const ampm = hh >= 12 ? "PM" : "AM";
+//   let displayH = hh % 12;
+//   if (displayH === 0) displayH = 12;
+//   return { time: `${String(displayH).padStart(2, "0")}:${mm}`, ampm };
+// };
+
+// const PurchaseForm = ({ onSaved }) => {
+//   const { poId } = useParams();
+//   const isEditMode = Boolean(poId);
+//   const navigate = useNavigate();
+//   const dispatch = useDispatch();
+
+//   const [loading, setLoading] = useState(false);
+//   const [vendors, setVendors] = useState([]);
+//   const [products, setProducts] = useState([]);
+
+//   const [header, setHeader] = useState({
+//     bill_date: "",
+//     bill_time: "00:00",
+//     vendor_id: "",
+//     address: "",
+//     mobile_no: "",
+//     gst_no: "",
+//     bill_no: "",
+//     terms_condition: "",
+//   });
+
+//   // row: product_id, item_name, hsn_code, available, size (qty), rate (purchase_rate), d1_percent, gst_percent
+//   const [rows, setRows] = useState([
+//     { product_id: "", item_name: "", hsn_code: "", available: 0, size: 1, rate: 0, d1_percent: 0, gst_percent: 0 },
+//   ]);
+
+//   useEffect(() => {
+//     const fetchMaster = async () => {
+//       try {
+//         setLoading(true);
+//         const [vRes, pRes] = await Promise.all([VendorAPI.getAll(), ProductAPI.getAll()]);
+//         setVendors(vRes?.data || []);
+
+//         // normalize products
+//         const all = (pRes?.data || []).map((p) => ({
+//           id: p.id,
+//           product_name: p.product_name,
+//           hsn_code: p.hsn_code || "",
+//           available: Number(p.size || 0), // Available Qty from size
+//           purchaseRate: Number(p.purchase_rate || 0), // Purchase rate to auto-fill
+//           raw: p,
+//         }));
+//         setProducts(all);
+
+//         const now = new Date();
+//         const y = now.getFullYear();
+//         const m = String(now.getMonth() + 1).padStart(2, "0");
+//         const d = String(now.getDate()).padStart(2, "0");
+//         const formattedDate = `${y}-${m}-${d}`;
+//   const minutes = String(now.getMinutes()).padStart(2, "0");
+//   const hours = now.getHours();
+//   let displayH = hours % 12;
+//         if (displayH === 0) displayH = 12;
+//         const formattedTime = `${String(displayH).padStart(2, "0")}:${minutes}`;
+
+//         setHeader((prev) => ({ ...prev, bill_date: formattedDate, bill_time: formattedTime }));
+//       } catch (e) {
+//         console.error("Master fetch error", e);
+//         // Optional: show error
+//         // Swal.fire({ icon: "error", title: "Failed to load data", text: e?.response?.data?.error || "Please try again." });
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+//     fetchMaster();
+//   }, []);
+
+//   const onVendorChange = (e) => {
+//     const vendorId = e.target.value;
+//     const selectedVendor = vendors.find((v) => String(v.id) === String(vendorId));
+//     if (selectedVendor) {
+//       setHeader((prev) => ({
+//         ...prev,
+//         vendor_id: vendorId,
+//         address: selectedVendor.address || "",
+//         mobile_no: selectedVendor.contact_number || "",
+//         gst_no: selectedVendor.gst_no || "",
+//       }));
+//     } else {
+//       setHeader((prev) => ({
+//         ...prev,
+//         vendor_id: "",
+//         address: "",
+//         mobile_no: "",
+//         gst_no: "",
+//       }));
+//     }
+//   };
+
+//   useEffect(() => {
+//     if (!isEditMode) return;
+//     const load = async () => {
+//       try {
+//         const res = await PurchaseAPI.getById(poId);
+//         const data = res?.data || {};
+//         const { time } = data.bill_time ? fromISOToTime(data.bill_time) : { time: "00:00" };
+//         setHeader({
+//           bill_date: data.bill_date || "",
+//           bill_time: time,
+//           vendor_id: data.vendor_id || "",
+//           address: data.address || "",
+//           mobile_no: data.mobile_no || "",
+//           gst_no: data.gst_no || "",
+//           bill_no: data.bill_no || "",
+//           terms_condition: data.terms_condition || "",
+//         });
+//         setRows(
+//           (data.items || []).map((it) => {
+//             const p = products.find((pp) => Number(pp.id) === Number(it.product_id));
+//             return {
+//               product_id: String(it.product_id || ""),
+//               item_name: it.item_name || it.product_name || p?.product_name || "",
+//               hsn_code: it.hsn_code || p?.hsn_code || "",
+//               available: p?.available ?? 0,
+//               size: Number(it.size || 0),
+//               rate: Number(it.rate || p?.purchaseRate || 0),
+//               d1_percent: Number(it.d1_percent ?? it.discount_rate ?? 0),
+//               gst_percent: Number(it.gst_percent ?? 0),
+//             };
+//           })
+//         );
+//       } catch (e) {
+//         console.error("Purchase fetch error", e);
+//         // Optional: show error
+//         // Swal.fire({ icon: "error", title: "Failed to load purchase", text: e?.response?.data?.error || "Please try again." });
+//       }
+//     };
+//     load();
+//     // eslint-disable-next-line react-hooks/exhaustive-deps
+//   }, [isEditMode, poId]);
+
+//   const onHeader = (e) => setHeader((p) => ({ ...p, [e.target.name]: e.target.value }));
+
+//   const onRow = (i, field, value) => {
+//     setRows((prev) => {
+//       const next = [...prev];
+//       const numeric = ["size", "rate", "d1_percent", "gst_percent"];
+//       const v = numeric.includes(field) ? Number(value || 0) : value;
+//       next[i] = { ...next[i], [field]: v };
+
+//       if (field === "product_id") {
+//         const p = products.find((x) => String(x.id) === String(value));
+//         next[i].item_name = p?.product_name || "";
+//         next[i].hsn_code = p?.hsn_code || "";
+//         next[i].available = Number(p?.available || 0);
+//         next[i].rate = Number(p?.purchaseRate || 0); // auto-fill purchase rate
+//         next[i].size = 1;
+//       }
+//       if (field === "size") {
+//         const qty = Number(v || 0);
+//         if (!Number.isFinite(qty) || qty < 1) next[i].size = 1;
+//       }
+//       return next;
+//     });
+//   };
+
+//   const calc = (r) => {
+//     const base = (r.size || 0) * (r.rate || 0);
+//     const perUnitDisc = ((r.rate || 0) * (r.d1_percent || 0)) / 100;
+//     const totalDisc = (r.size || 0) * perUnitDisc;
+//     const taxable = Math.max(0, base - totalDisc);
+//     const gstAmt = (taxable * (r.gst_percent || 0)) / 100;
+//     const final = taxable + gstAmt;
+//     return { base, perUnitDisc, totalDisc, taxable, gstAmt, final };
+//   };
+
+//   const totals = useMemo(
+//     () =>
+//       rows.reduce(
+//         (a, r) => {
+//           const c = calc(r);
+//           a.base += c.base;
+//           a.disc += c.totalDisc;
+//           a.taxable += c.taxable;
+//           a.gst += c.gstAmt;
+//           a.final += c.final;
+//           return a;
+//         },
+//         { base: 0, disc: 0, taxable: 0, gst: 0, final: 0 }
+//       ),
+//     [rows]
+//   );
+
+//   const onSubmit = async (e) => {
+//     e.preventDefault();
+//     try {
+//       setLoading(true);
+
+//       let bill_time_iso = "";
+//       if (header.bill_date) {
+//         const t24 = to24h(header.bill_time || "00:00", header.bill_time_am_pm || "PM");
+//         bill_time_iso = `${header.bill_date}T${t24}`;
+//       }
+
+//       const payload = {
+//         ...header,
+//         bill_time: bill_time_iso,
+//         items: rows.map((r) => ({
+//           product_id: r.product_id,
+//           rate: Number(r.rate || 0), // purchase rate possibly edited
+//           size: Number(r.size || 0),
+//           unit: "PCS",
+//           discount_rate: Number(r.d1_percent || 0),
+//           gst_percent: Number(r.gst_percent || 0),
+//         })),
+//         summary: totals,
+//       };
+
+//       if (isEditMode) {
+//         await PurchaseAPI.update(poId, payload);
+
+//         // Push purchase_rate changes to product master with product_name included
+//         const updates = payload.items.map((it) => {
+//           const p = products.find((x) => Number(x.id) === Number(it.product_id));
+//           return ProductAPI.update(it.product_id, {
+//             product_name: p?.product_name, // include existing name to avoid NULL overwrite
+//             purchase_rate: it.rate,
+//           });
+//         });
+//         await Promise.allSettled(updates);
+
+//         await dispatch(fetchProducts());
+
+//         // Refresh purchases list so UI (table/modal) shows updated data
+//         try {
+//           await dispatch(fetchPurchases());
+//         } catch (e) {
+//           // ignore - fetchPurchases will set errors in slice if any
+//           console.warn("Failed to refresh purchases after update", e);
+//         }
+
+//         // SweetAlert2 success for Update
+//         await Swal.fire({
+//           icon: "success",
+//           title: "Purchase updated",
+//           text: "Purchase updated successfully",
+//           confirmButtonColor: "#2563eb",
+//         });
+
+//         navigate("/purchases");
+//       } else {
+//         await PurchaseAPI.create(payload);
+
+//         // Update product purchase_rate to last used rate
+//         const updates = payload.items.map((it) => {
+//           const p = products.find((x) => Number(x.id) === Number(it.product_id));
+//           return ProductAPI.update(it.product_id, {
+//             product_name: p?.product_name,
+//             purchase_rate: it.rate,
+//           });
+//         });
+//         await Promise.allSettled(updates);
+
+//         await dispatch(fetchProducts());
+
+//         // SweetAlert2 success for Create
+//         await Swal.fire({
+//           icon: "success",
+//           title: "Purchase saved",
+//           text: "Purchase saved successfully",
+//           confirmButtonColor: "#2563eb",
+//         });
+
+//         if (typeof onSaved === "function") onSaved();
+//       }
+//     } catch (err) {
+//       console.error(err);
+//       // SweetAlert2 error
+//       Swal.fire({
+//         icon: "error",
+//         title: "Failed to save",
+//         text: err?.response?.data?.error || "Failed to save purchase",
+//         confirmButtonColor: "#dc2626",
+//       });
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   const isFormValid =
+//     String(header.bill_date || "").trim() !== "" &&
+//     String(header.vendor_id || "").trim() !== "" &&
+//     rows.length > 0 &&
+//     rows.every(
+//       (r) =>
+//         String(r.product_id).trim() !== "" &&
+//         String(r.item_name || "").trim() !== "" &&
+//         Number(r.size) > 0 &&
+//         Number(r.rate) > 0
+//     );
+
+//   return (
+//     <form onSubmit={onSubmit} className="p-3">
+//       {/* header */}
+//       <div className="grid grid-cols-6 gap-3 border p-3 overflow-auto rounded">
+//         <div className="flex flex-col">
+//           <label className="text-xs">Bill Date</label>
+//           <input
+//             type="date"
+//             className="border rounded p-1"
+//             name="bill_date"
+//             value={header.bill_date}
+//             onChange={onHeader}
+//           />
+//         </div>
+//         {/* <div className="flex flex-col">
+//           <label className="text-xs">BILL TIME</label>
+//           <div className="flex gap-1">
+//             <input
+//               type="time"
+//               name="bill_time"
+//               value={header.bill_time || "00:00"}
+//               onChange={onHeader}
+//               className="border rounded p-1"
+//             />
+//           </div>
+//         </div> */}
+//         <div className="flex flex-col">
+//           <label className="text-xs">Vendor</label>
+//           <select
+//             className="border rounded p-1"
+//             name="vendor_id"
+//             value={header.vendor_id}
+//             onChange={onVendorChange}
+//           >
+//             <option value="">Select</option>
+//             {vendors.map((v) => (
+//               <option key={v.id} value={v.id}>
+//                 {v.vendor_name || v.name}
+//               </option>
+//             ))}
+//           </select>
+//         </div>
+//         <div className="flex flex-col">
+//           <label className="text-xs">ADDRESS</label>
+//           <input
+//             className="border rounded p-1"
+//             name="address"
+//             value={header.address}
+//             onChange={onHeader}
+//           />
+//         </div>
+//         <div className="flex flex-col">
+//           <label className="text-xs">MOBILE NO</label>
+//           <input
+//             className="border rounded p-1"
+//             name="mobile_no"
+//             value={header.mobile_no}
+//             onChange={onHeader}
+//           />
+//         </div>
+//         <div className="flex flex-col">
+//           <label className="text-xs">GST No</label>
+//           <input
+//             className="border rounded p-1"
+//             name="gst_no"
+//             value={header.gst_no}
+//             onChange={onHeader}
+//           />
+//         </div>
+//         <div className="flex flex-col">
+//           <label className="text-xs">Bill No.</label>
+//           <input
+//             className="border rounded p-1"
+//             name="bill_no"
+//             value={header.bill_no}
+//             onChange={onHeader}
+//           />
+//         </div>
+//       </div>
+
+//       <div className="bg-black text-yellow-300 text-center text-2xl font-semibold py-2 mt-3 mb-2 rounded">
+//         FINAL AMOUNT: {fx(totals.final)}
+//       </div>
+
+//       {/* items */}
+//       <div className="overflow-auto">
+//         <table className="w-full text-sm border">
+//           <thead className="bg-green-700 text-white">
+//             <tr>
+//               {[
+//                 "SI",
+//                 "Item Name",
+//                 "HSNCode",
+//                 "Available",
+//                 "QTY",
+//                 "Rate",
+//                 "Amount",
+//                 "Disc %",
+//                 "Per Qty Disc",
+//                 "Total Disc",
+//                 "GST%",
+//                 "GST Amt",
+//                 "FinalAmt",
+//                 "Actions",
+//               ].map((h, idx) => (
+//                 <th key={`${h}-${idx}`} className="border px-2 py-1 text-left">
+//                   {h}
+//                 </th>
+//               ))}
+//             </tr>
+//           </thead>
+//           <tbody>
+//             {rows.map((r, i) => {
+//               const c = ((rr) => {
+//                 const base = (rr.size || 0) * (rr.rate || 0);
+//                 const perUnitDisc = ((rr.rate || 0) * (rr.d1_percent || 0)) / 100;
+//                 const totalDisc = (rr.size || 0) * perUnitDisc;
+//                 const taxable = Math.max(0, base - totalDisc);
+//                 const gstAmt = (taxable * (rr.gst_percent || 0)) / 100;
+//                 const final = taxable + gstAmt;
+//                 return { base, perUnitDisc, totalDisc, taxable, gstAmt, final };
+//               })(r);
+
+//               return (
+//                 <tr key={i} className="odd:bg-white even:bg-gray-50">
+//                   <td className="border px-2 py-1">{i + 1}</td>
+
+//                   <td className="border px-2 py-1">
+//                     <div className="flex gap-1">
+//                       <select
+//                         className="border rounded p-1 w-44"
+//                         value={r.product_id}
+//                         onChange={(e) => {
+//                           const pid = e.target.value;
+//                           const p = products.find((x) => String(x.id) === String(pid));
+//                           onRow(i, "product_id", pid);
+//                           if (p) {
+//                             onRow(i, "item_name", p.product_name || "");
+//                             onRow(i, "hsn_code", p.hsn_code || "");
+//                             onRow(i, "rate", Number(p.purchaseRate || 0)); // auto-fill purchase rate
+//                             onRow(i, "available", Number(p.available || 0)); // show available
+//                           }
+//                         }}
+//                       >
+//                         <option value="">Select</option>
+//                         {products.map((p) => (
+//                           <option key={p.id} value={String(p.id)}>
+//                             {p.product_name}
+//                           </option>
+//                         ))}
+//                       </select>
+//                     </div>
+//                   </td>
+
+//                   <td className="border px-2 py-1">
+//                     <input
+//                       readOnly
+//                       className="border cursor-not-allowed bg-gray-100 rounded p-1 w-24"
+//                       value={r.hsn_code}
+//                       onChange={(e) => onRow(i, "hsn_code", e.target.value)}
+//                     />
+//                   </td>
+
+//                   <td className="border px-2 py-1">
+//                     <input readOnly className="border rounded p-1 w-20 bg-gray-100" value={r.available ?? 0} />
+//                   </td>
+
+//                   <td className="border px-2 py-1">
+//                     <input
+//                       type="number"
+//                       className="border rounded p-1 w-20"
+//                       value={r.size}
+//                       onChange={(e) => onRow(i, "size", e.target.value)}
+//                     />
+//                   </td>
+
+//                   <td className="border px-2 py-1">
+//                     <input
+//                       type="number"
+//                       className="border rounded p-1 w-20"
+//                       value={r.rate}
+//                       onChange={(e) => onRow(i, "rate", e.target.value)}
+//                     />
+//                   </td>
+
+//                   <td className="border px-2 py-1">{fx(c.base)}</td>
+
+//                   <td className="border px-2 py-1">
+//                     <input
+//                       type="number"
+//                       className="border rounded p-1 w-16"
+//                       value={r.d1_percent}
+//                       onChange={(e) => onRow(i, "d1_percent", e.target.value)}
+//                     />
+//                   </td>
+
+//                   <td className="border px-2 py-1">
+//                     <input
+//                       type="text"
+//                       className="border rounded p-1 w-20 bg-gray-100"
+//                       value={fx(c.perUnitDisc)}
+//                       readOnly
+//                     />
+//                   </td>
+
+//                   <td className="border px-2 py-1">
+//                     <input
+//                       type="text"
+//                       className="border rounded p-1 w-24 bg-gray-100"
+//                       value={fx(c.totalDisc)}
+//                       readOnly
+//                     />
+//                   </td>
+
+//                   <td className="border px-2 py-1">
+//                     <input
+//                       type="number"
+//                       className="border rounded p-1 w-16"
+//                       value={r.gst_percent}
+//                       onChange={(e) => onRow(i, "gst_percent", e.target.value)}
+//                     />
+//                   </td>
+
+//                   <td className="border px-2 py-1">{fx(c.gstAmt)}</td>
+//                   <td className="border px-2 py-1">{fx(c.final)}</td>
+
+//                   <td className="border px-2 py-1 text-center">
+//                     <button
+//                       type="button"
+//                       className="text-red-600 active:scale-95"
+//                       onClick={() => setRows((p) => p.filter((_, idx) => idx !== i))}
+//                     >
+//                       ❌
+//                     </button>
+//                   </td>
+//                 </tr>
+//               );
+//             })}
+//           </tbody>
+
+//           <tfoot>
+//             <tr className="bg-gray-100 font-semibold">
+//               <td className="border px-2 py-1" colSpan={6}>
+//                 Totals
+//               </td>
+//               <td className="border px-2 py-1">{fx(totals.base)}</td>
+//               <td className="border px-2 py-1">—</td>
+//               <td className="border px-2 py-1">—</td>
+//               <td className="border px-2 py-1">{fx(totals.disc)}</td>
+//               <td className="border px-2 py-1">—</td>
+//               <td className="border px-2 py-1">{fx(totals.gst)}</td>
+//               <td className="border px-2 py-1">{fx(totals.final)}</td>
+//               <td className="border px-2 py-1"></td>
+//             </tr>
+//           </tfoot>
+//         </table>
+//       </div>
+
+//       <div className="flex gap-2 mt-3">
+//         <button
+//           type="button"
+//           onClick={() =>
+//             setRows((p) => [
+//               ...p,
+//               { product_id: "", item_name: "", hsn_code: "", available: 0, size: 1, rate: 0, d1_percent: 0, gst_percent: 0 },
+//             ])
+//           }
+//           className="px-4 py-2 bg-blue-600 action:scale-95 text-white rounded"
+//         >
+//           Add Item
+//         </button>
+//         <button
+//           type="submit"
+//           disabled={loading || !isFormValid}
+//           className={`px-6 py-2 active:scale-95 rounded text-white bg-green-700 transition-opacity duration-200 ${
+//             loading || !isFormValid ? "opacity-50 cursor-not-allowed" : "opacity-100 cursor-pointer"
+//           }`}
+//         >
+//           {loading ? (isEditMode ? "Updating..." : "Saving...") : isEditMode ? "Update" : "Save Purchase"}
+//         </button>
+//       </div>
+//     </form>
+//   );
+// };
+
+// export default PurchaseForm;
+
 // src/pages/purchase/PurchaseForm.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import PurchaseAPI from "../../axios/purchaseApi";
 import VendorAPI from "../../axios/vendorsAPI";
+import FarmerAPI from "../../axios/farmerAPI";
 import ProductAPI from "../../axios/productAPI";
 import { useDispatch } from "react-redux";
 import { fetchProducts } from "../../features/products/productsSlice";
 import { fetchPurchases } from "../../features/purchase/purchaseSlice";
-
-// SweetAlert2
 import Swal from "sweetalert2";
-// Optional uniform styles (can be omitted if not needed)
-// import "sweetalert2/dist/sweetalert2.min.css";
 
 const fx = (n) => (isNaN(n) ? "0.000" : Number(n).toFixed(3));
 
@@ -41,39 +652,52 @@ const PurchaseForm = ({ onSaved }) => {
   const dispatch = useDispatch();
 
   const [loading, setLoading] = useState(false);
+
+  // Masters
   const [vendors, setVendors] = useState([]);
+  const [farmers, setFarmers] = useState([]);
   const [products, setProducts] = useState([]);
 
-  const [header, setHeader] = useState({
-    bill_date: "",
-    bill_time: "00:00",
-    vendor_id: "",
-    address: "",
-    mobile_no: "",
-    gst_no: "",
-    bill_no: "",
-    terms_condition: "",
-  });
+  // Header
+const [header, setHeader] = useState({
+  bill_date: "",
+  bill_time: "00:00",
+  party_type: "vendor",
+  vendor_id: "",
+  farmer_id: "",
+  address: "",
+  mobile_no: "",
+  gst_no: "",
+  bill_no: "",
+  terms_condition: "",
+  party_balance: 0,        // NEW
+  party_min_balance: 0,    // NEW
+});
 
-  // row: product_id, item_name, hsn_code, available, size (qty), rate (purchase_rate), d1_percent, gst_percent
+
+  // Rows
   const [rows, setRows] = useState([
     { product_id: "", item_name: "", hsn_code: "", available: 0, size: 1, rate: 0, d1_percent: 0, gst_percent: 0 },
   ]);
 
+  // Load masters
   useEffect(() => {
     const fetchMaster = async () => {
       try {
         setLoading(true);
-        const [vRes, pRes] = await Promise.all([VendorAPI.getAll(), ProductAPI.getAll()]);
+        const [vRes, fRes, pRes] = await Promise.all([
+          VendorAPI.getAll(),
+          FarmerAPI.getAll(),
+          ProductAPI.getAll(),
+        ]);
         setVendors(vRes?.data || []);
-
-        // normalize products
+        setFarmers(fRes?.data || []);
         const all = (pRes?.data || []).map((p) => ({
           id: p.id,
           product_name: p.product_name,
           hsn_code: p.hsn_code || "",
-          available: Number(p.size || 0), // Available Qty from size
-          purchaseRate: Number(p.purchase_rate || 0), // Purchase rate to auto-fill
+          available: Number(p.size || 0),
+          purchaseRate: Number(p.purchase_rate || 0),
           raw: p,
         }));
         setProducts(all);
@@ -82,18 +706,18 @@ const PurchaseForm = ({ onSaved }) => {
         const y = now.getFullYear();
         const m = String(now.getMonth() + 1).padStart(2, "0");
         const d = String(now.getDate()).padStart(2, "0");
-        const formattedDate = `${y}-${m}-${d}`;
-  const minutes = String(now.getMinutes()).padStart(2, "0");
-  const hours = now.getHours();
-  let displayH = hours % 12;
+        const minutes = String(now.getMinutes()).padStart(2, "0");
+        const hours = now.getHours();
+        let displayH = hours % 12;
         if (displayH === 0) displayH = 12;
-        const formattedTime = `${String(displayH).padStart(2, "0")}:${minutes}`;
 
-        setHeader((prev) => ({ ...prev, bill_date: formattedDate, bill_time: formattedTime }));
+        setHeader((prev) => ({
+          ...prev,
+          bill_date: `${y}-${m}-${d}`,
+          bill_time: `${String(displayH).padStart(2, "0")}:${minutes}`,
+        }));
       } catch (e) {
         console.error("Master fetch error", e);
-        // Optional: show error
-        // Swal.fire({ icon: "error", title: "Failed to load data", text: e?.response?.data?.error || "Please try again." });
       } finally {
         setLoading(false);
       }
@@ -101,28 +725,60 @@ const PurchaseForm = ({ onSaved }) => {
     fetchMaster();
   }, []);
 
-  const onVendorChange = (e) => {
-    const vendorId = e.target.value;
-    const selectedVendor = vendors.find((v) => String(v.id) === String(vendorId));
-    if (selectedVendor) {
-      setHeader((prev) => ({
-        ...prev,
-        vendor_id: vendorId,
-        address: selectedVendor.address || "",
-        mobile_no: selectedVendor.contact_number || "",
-        gst_no: selectedVendor.gst_no || "",
-      }));
-    } else {
-      setHeader((prev) => ({
-        ...prev,
-        vendor_id: "",
-        address: "",
-        mobile_no: "",
-        gst_no: "",
-      }));
-    }
-  };
+  // Party type change
+const onPartyTypeChange = (e) => {
+  const val = e.target.value;
+  setHeader((prev) => ({
+    ...prev,
+    party_type: val,
+    vendor_id: val === "vendor" ? prev.vendor_id : "",
+    farmer_id: val === "farmer" ? prev.farmer_id : "",
+    address: "",
+    mobile_no: "",
+    gst_no: "",
+    party_balance: 0,         // reset
+    party_min_balance: 0,     // reset
+  }));
+};
 
+
+  // Party change (vendor/farmer)
+const onPartyChange = (e) => {
+  const id = e.target.value;
+  if (header.party_type === "vendor") {
+    const v = vendors.find((x) => String(x.id) === String(id));
+    setHeader((prev) => ({
+      ...prev,
+      vendor_id: id,
+      farmer_id: "",
+      address: v?.address || "",
+      mobile_no: v?.contact_number || "",
+      gst_no: v?.gst_no || "",
+      party_balance: Number(v?.balance ?? 0),          // NEW
+      party_min_balance: Number(v?.min_balance ?? 0),  // NEW
+    }));
+  } else {
+    const f = farmers.find((x) => String(x.id) === String(id));
+    setHeader((prev) => ({
+      ...prev,
+      farmer_id: id,
+      vendor_id: "",
+      // farmers table me address fields na ho to blank
+      address: "",
+      mobile_no: f?.contact_number || "",
+      gst_no: "", // usually N/A for farmer
+      party_balance: Number(f?.balance ?? 0),          // NEW
+      party_min_balance: Number(f?.min_balance ?? 0),  // NEW
+    }));
+  }
+};
+
+
+
+  // Backward compat
+  const onVendorChange = (e) => onPartyChange(e);
+
+  // Load existing purchase
   useEffect(() => {
     if (!isEditMode) return;
     const load = async () => {
@@ -130,16 +786,24 @@ const PurchaseForm = ({ onSaved }) => {
         const res = await PurchaseAPI.getById(poId);
         const data = res?.data || {};
         const { time } = data.bill_time ? fromISOToTime(data.bill_time) : { time: "00:00" };
-        setHeader({
-          bill_date: data.bill_date || "",
-          bill_time: time,
-          vendor_id: data.vendor_id || "",
-          address: data.address || "",
-          mobile_no: data.mobile_no || "",
-          gst_no: data.gst_no || "",
-          bill_no: data.bill_no || "",
-          terms_condition: data.terms_condition || "",
-        });
+
+setHeader((prev) => ({
+  ...prev,
+  bill_date: data.bill_date || "",
+  bill_time: time,
+  party_type: data.party_type || "vendor",
+  vendor_id: data.vendor_id || "",
+  farmer_id: data.farmer_id || "",
+  address: data.address || "",
+  mobile_no: data.mobile_no || "",
+  gst_no: data.gst_no || "",
+  bill_no: data.bill_no || "",
+  terms_condition: data.terms_condition || "",
+  party_balance: Number(data.party_balance ?? data.balance ?? 0),          // NEW (backend should send)
+  party_min_balance: Number(data.party_min_balance ?? data.min_balance ?? 0), // NEW
+}));
+
+
         setRows(
           (data.items || []).map((it) => {
             const p = products.find((pp) => Number(pp.id) === Number(it.product_id));
@@ -157,8 +821,6 @@ const PurchaseForm = ({ onSaved }) => {
         );
       } catch (e) {
         console.error("Purchase fetch error", e);
-        // Optional: show error
-        // Swal.fire({ icon: "error", title: "Failed to load purchase", text: e?.response?.data?.error || "Please try again." });
       }
     };
     load();
@@ -179,7 +841,7 @@ const PurchaseForm = ({ onSaved }) => {
         next[i].item_name = p?.product_name || "";
         next[i].hsn_code = p?.hsn_code || "";
         next[i].available = Number(p?.available || 0);
-        next[i].rate = Number(p?.purchaseRate || 0); // auto-fill purchase rate
+        next[i].rate = Number(p?.purchaseRate || 0);
         next[i].size = 1;
       }
       if (field === "size") {
@@ -217,6 +879,14 @@ const PurchaseForm = ({ onSaved }) => {
     [rows]
   );
 
+  const addRow = () =>
+    setRows((p) => [
+      ...p,
+      { product_id: "", item_name: "", hsn_code: "", available: 0, size: 1, rate: 0, d1_percent: 0, gst_percent: 0 },
+    ]);
+
+  const removeRow = (idx) => setRows((p) => p.filter((_, i) => i !== idx));
+
   const onSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -231,9 +901,11 @@ const PurchaseForm = ({ onSaved }) => {
       const payload = {
         ...header,
         bill_time: bill_time_iso,
+        vendor_id: header.party_type === "vendor" ? header.vendor_id : null,
+        farmer_id: header.party_type === "farmer" ? header.farmer_id : null,
         items: rows.map((r) => ({
           product_id: r.product_id,
-          rate: Number(r.rate || 0), // purchase rate possibly edited
+          rate: Number(r.rate || 0),
           size: Number(r.size || 0),
           unit: "PCS",
           discount_rate: Number(r.d1_percent || 0),
@@ -244,40 +916,6 @@ const PurchaseForm = ({ onSaved }) => {
 
       if (isEditMode) {
         await PurchaseAPI.update(poId, payload);
-
-        // Push purchase_rate changes to product master with product_name included
-        const updates = payload.items.map((it) => {
-          const p = products.find((x) => Number(x.id) === Number(it.product_id));
-          return ProductAPI.update(it.product_id, {
-            product_name: p?.product_name, // include existing name to avoid NULL overwrite
-            purchase_rate: it.rate,
-          });
-        });
-        await Promise.allSettled(updates);
-
-        await dispatch(fetchProducts());
-
-        // Refresh purchases list so UI (table/modal) shows updated data
-        try {
-          await dispatch(fetchPurchases());
-        } catch (e) {
-          // ignore - fetchPurchases will set errors in slice if any
-          console.warn("Failed to refresh purchases after update", e);
-        }
-
-        // SweetAlert2 success for Update
-        await Swal.fire({
-          icon: "success",
-          title: "Purchase updated",
-          text: "Purchase updated successfully",
-          confirmButtonColor: "#2563eb",
-        });
-
-        navigate("/purchases");
-      } else {
-        await PurchaseAPI.create(payload);
-
-        // Update product purchase_rate to last used rate
         const updates = payload.items.map((it) => {
           const p = products.find((x) => Number(x.id) === Number(it.product_id));
           return ProductAPI.update(it.product_id, {
@@ -286,22 +924,38 @@ const PurchaseForm = ({ onSaved }) => {
           });
         });
         await Promise.allSettled(updates);
-
         await dispatch(fetchProducts());
-
-        // SweetAlert2 success for Create
+        try {
+          await dispatch(fetchPurchases());
+        } catch {}
+        await Swal.fire({
+          icon: "success",
+          title: "Purchase updated",
+          text: "Purchase updated successfully",
+          confirmButtonColor: "#2563eb",
+        });
+        navigate("/purchases");
+      } else {
+        await PurchaseAPI.create(payload);
+        const updates = payload.items.map((it) => {
+          const p = products.find((x) => Number(x.id) === Number(it.product_id));
+          return ProductAPI.update(it.product_id, {
+            product_name: p?.product_name,
+            purchase_rate: it.rate,
+          });
+        });
+        await Promise.allSettled(updates);
+        await dispatch(fetchProducts());
         await Swal.fire({
           icon: "success",
           title: "Purchase saved",
           text: "Purchase saved successfully",
           confirmButtonColor: "#2563eb",
         });
-
         if (typeof onSaved === "function") onSaved();
       }
     } catch (err) {
       console.error(err);
-      // SweetAlert2 error
       Swal.fire({
         icon: "error",
         title: "Failed to save",
@@ -315,7 +969,8 @@ const PurchaseForm = ({ onSaved }) => {
 
   const isFormValid =
     String(header.bill_date || "").trim() !== "" &&
-    String(header.vendor_id || "").trim() !== "" &&
+    ((header.party_type === "vendor" && String(header.vendor_id || "").trim() !== "") ||
+      (header.party_type === "farmer" && String(header.farmer_id || "").trim() !== "")) &&
     rows.length > 0 &&
     rows.every(
       (r) =>
@@ -327,7 +982,7 @@ const PurchaseForm = ({ onSaved }) => {
 
   return (
     <form onSubmit={onSubmit} className="p-3">
-      {/* header */}
+      {/* Header */}
       <div className="grid grid-cols-6 gap-3 border p-3 overflow-auto rounded">
         <div className="flex flex-col">
           <label className="text-xs">Bill Date</label>
@@ -339,77 +994,67 @@ const PurchaseForm = ({ onSaved }) => {
             onChange={onHeader}
           />
         </div>
-        {/* <div className="flex flex-col">
-          <label className="text-xs">BILL TIME</label>
-          <div className="flex gap-1">
-            <input
-              type="time"
-              name="bill_time"
-              value={header.bill_time || "00:00"}
-              onChange={onHeader}
-              className="border rounded p-1"
-            />
-          </div>
-        </div> */}
+
         <div className="flex flex-col">
-          <label className="text-xs">Vendor</label>
+          <label className="text-xs">Party Type</label>
+          <select className="border rounded p-1" value={header.party_type} onChange={onPartyTypeChange}>
+            <option value="vendor">Vendor</option>
+            <option value="farmer">Farmer</option>
+          </select>
+        </div>
+
+        <div className="flex flex-col">
+          <label className="text-xs">{header.party_type === "vendor" ? "Vendor" : "Farmer"}</label>
           <select
             className="border rounded p-1"
-            name="vendor_id"
-            value={header.vendor_id}
-            onChange={onVendorChange}
+            name={header.party_type === "vendor" ? "vendor_id" : "farmer_id"}
+            value={header.party_type === "vendor" ? header.vendor_id : header.farmer_id}
+            onChange={onPartyChange}
           >
             <option value="">Select</option>
-            {vendors.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.vendor_name || v.name}
+            {(header.party_type === "vendor" ? vendors : farmers).map((p) => (
+              <option key={p.id} value={p.id}>
+                {header.party_type === "vendor" ? (p.vendor_name || p.name) : p.name}
               </option>
             ))}
           </select>
         </div>
+
         <div className="flex flex-col">
           <label className="text-xs">ADDRESS</label>
-          <input
-            className="border rounded p-1"
-            name="address"
-            value={header.address}
-            onChange={onHeader}
-          />
+          <input className="border rounded p-1" name="address" value={header.address} onChange={onHeader} />
         </div>
         <div className="flex flex-col">
           <label className="text-xs">MOBILE NO</label>
-          <input
-            className="border rounded p-1"
-            name="mobile_no"
-            value={header.mobile_no}
-            onChange={onHeader}
-          />
+          <input className="border rounded p-1" name="mobile_no" value={header.mobile_no} onChange={onHeader} />
         </div>
         <div className="flex flex-col">
           <label className="text-xs">GST No</label>
-          <input
-            className="border rounded p-1"
-            name="gst_no"
-            value={header.gst_no}
-            onChange={onHeader}
-          />
+          <input className="border rounded p-1" name="gst_no" value={header.gst_no} onChange={onHeader} />
         </div>
         <div className="flex flex-col">
           <label className="text-xs">Bill No.</label>
-          <input
-            className="border rounded p-1"
-            name="bill_no"
-            value={header.bill_no}
-            onChange={onHeader}
-          />
+          <input className="border rounded p-1" name="bill_no" value={header.bill_no} onChange={onHeader} />
         </div>
+              <div className="flex flex-col">
+  <label className="text-xs">Party Balance</label>
+  <input
+    className="border rounded p-1 bg-gray-100"
+    name="party_balance"
+    value={fx(header.party_balance)}
+    readOnly
+  />
+</div>
+
       </div>
+
+
 
       <div className="bg-black text-yellow-300 text-center text-2xl font-semibold py-2 mt-3 mb-2 rounded">
         FINAL AMOUNT: {fx(totals.final)}
       </div>
 
-      {/* items */}
+      {/* Items */}
       <div className="overflow-auto">
         <table className="w-full text-sm border">
           <thead className="bg-green-700 text-white">
@@ -464,8 +1109,8 @@ const PurchaseForm = ({ onSaved }) => {
                           if (p) {
                             onRow(i, "item_name", p.product_name || "");
                             onRow(i, "hsn_code", p.hsn_code || "");
-                            onRow(i, "rate", Number(p.purchaseRate || 0)); // auto-fill purchase rate
-                            onRow(i, "available", Number(p.available || 0)); // show available
+                            onRow(i, "rate", Number(p.purchaseRate || 0));
+                            onRow(i, "available", Number(p.available || 0));
                           }
                         }}
                       >
@@ -555,7 +1200,7 @@ const PurchaseForm = ({ onSaved }) => {
                     <button
                       type="button"
                       className="text-red-600 active:scale-95"
-                      onClick={() => setRows((p) => p.filter((_, idx) => idx !== i))}
+                      onClick={() => removeRow(i)}
                     >
                       ❌
                     </button>
@@ -584,16 +1229,7 @@ const PurchaseForm = ({ onSaved }) => {
       </div>
 
       <div className="flex gap-2 mt-3">
-        <button
-          type="button"
-          onClick={() =>
-            setRows((p) => [
-              ...p,
-              { product_id: "", item_name: "", hsn_code: "", available: 0, size: 1, rate: 0, d1_percent: 0, gst_percent: 0 },
-            ])
-          }
-          className="px-4 py-2 bg-blue-600 action:scale-95 text-white rounded"
-        >
+        <button type="button" onClick={addRow} className="px-4 py-2 bg-blue-600 active:scale-95 text-white rounded">
           Add Item
         </button>
         <button

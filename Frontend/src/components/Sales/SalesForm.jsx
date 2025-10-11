@@ -3,11 +3,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import Swal from "sweetalert2";
 import salesAPI from "../../axios/salesAPI";
 import customersAPI from "../../axios/customerAPI";
+import vendorAPI from "../../axios/vendorsAPI";
+import farmerAPI from "../../axios/farmerAPI";
 import productsAPI from "../../axios/productAPI";
 
 const fx = (n) => (isNaN(n) ? "0.000" : Number(n).toFixed(3));
 
-// Auto-margin slabs (same as before)
 const getMarginPercentByQty = (qty) => {
   const q = Number(qty) || 0;
   if (q >= 1 && q <= 4) return 50;
@@ -17,7 +18,6 @@ const getMarginPercentByQty = (qty) => {
 };
 const getRowMarginPercent = (r) => getMarginPercentByQty(r.qty || 0);
 
-// Parse GST like "18" or "18%"
 const parseGst = (v) => {
   if (v == null) return 0;
   const s = String(v).replace("%", "");
@@ -27,17 +27,21 @@ const parseGst = (v) => {
 
 export default function SalesForm({ sale, onSubmitted }) {
   const [customers, setCustomers] = useState([]);
+  const [vendors, setVendors] = useState([]);
+  const [farmers, setFarmers] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const isEditMode = Boolean(sale);
 
-  // Keep auto-margin on unless manual rate chosen
   const [useCostMargin] = useState(true);
 
   const [header, setHeader] = useState({
     sale_no: "",
     date: "",
+    party_type: "customer",
     customer_id: "",
+    vendor_id: "",
+    farmer_id: "",
     address: "",
     mobile_no: "",
     gst_no: "",
@@ -47,9 +51,10 @@ export default function SalesForm({ sale, onSubmitted }) {
     status: "Active",
     old_remaining: 0,
     cash_received: 0,
+    party_balance: 0,
+    party_min_balance: 0,
   });
 
-  // No per_size_disc in state; derive like PurchaseForm
   const emptyRow = {
     product_id: "",
     item_name: "",
@@ -58,7 +63,7 @@ export default function SalesForm({ sale, onSubmitted }) {
     qty: 1,
     cost_rate: 0,
     rate: 0,
-    d1_percent: 0,   // percent discount
+    d1_percent: 0,
     gst_percent: 0,
     unit: "PCS",
     manualRate: false,
@@ -67,10 +72,8 @@ export default function SalesForm({ sale, onSubmitted }) {
   const [rows, setRows] = useState([{ ...emptyRow }]);
   const [errors, setErrors] = useState({ header: {}, rows: {} });
 
-  // Refs
   const headerRefs = {
     date: useRef(null),
-    customer_id: useRef(null),
     sale_no: useRef(null),
     address: useRef(null),
     mobile_no: useRef(null),
@@ -80,14 +83,22 @@ export default function SalesForm({ sale, onSubmitted }) {
     cash_received: useRef(null),
   };
 
-  // Init: customers + products, and load edit
   useEffect(() => {
     const init = async () => {
       try {
         setLoading(true);
-        const [custRes, prodRes] = await Promise.all([customersAPI.getAll(), productsAPI.getAll()]);
+        const [custRes, vendRes, farmRes, prodRes] = await Promise.all([
+          customersAPI.getAll(),
+          vendorAPI.getAll(),
+          farmerAPI.getAll(),
+          productsAPI.getAll(),
+        ]);
         const allCustomers = custRes?.data || [];
+        const allVendors = vendRes?.data || [];
+        const allFarmers = farmRes?.data || [];
         setCustomers(allCustomers);
+        setVendors(allVendors);
+        setFarmers(allFarmers);
 
         const normalized = (prodRes?.data || []).map((p) => ({
           id: p.id,
@@ -102,21 +113,35 @@ export default function SalesForm({ sale, onSubmitted }) {
 
         if (isEditMode && sale) {
           const normalizedDate = sale.bill_date ? new Date(sale.bill_date).toISOString().split("T")[0] : "";
-          const selectedCustomer = allCustomers.find((c) => Number(c.id) === Number(sale.customer_id));
+          const party_type = sale.party_type || "customer";
+
+          const selectedCustomer = party_type === "customer" ? allCustomers.find((c) => Number(c.id) === Number(sale.customer_id)) : null;
+          const selectedVendor   = party_type === "vendor"   ? allVendors.find((v) => Number(v.id) === Number(sale.vendor_id)) : null;
+          const selectedFarmer   = party_type === "farmer"   ? allFarmers.find((f) => Number(f.id) === Number(sale.farmer_id)) : null;
+
+          const phone = party_type === "customer" ? selectedCustomer?.phone : party_type === "vendor" ? selectedVendor?.contact_number : selectedFarmer?.contact_number;
+          const address = party_type === "customer" ? selectedCustomer?.address : party_type === "vendor" ? selectedVendor?.address : "";
+          const gst = party_type === "customer" ? (selectedCustomer?.gst_no || selectedCustomer?.GST_No || "") : party_type === "vendor" ? (selectedVendor?.gst_no || "") : "";
+
           setHeader((prev) => ({
             ...prev,
             sale_no: sale.bill_no || "",
             date: normalizedDate,
+            party_type,
             customer_id: sale.customer_id || "",
-            address: selectedCustomer?.address || "",
-            mobile_no: selectedCustomer?.phone || "",
-            gst_no: (selectedCustomer?.gst_no || selectedCustomer?.GST_No || ""),
+            vendor_id: sale.vendor_id || "",
+            farmer_id: sale.farmer_id || "",
+            address: address || "",
+            mobile_no: phone || "",
+            gst_no: gst,
             terms_condition: sale.remarks || "",
             payment_status: sale.payment_status || "Unpaid",
             payment_method: sale.payment_method || "Cash",
             status: sale.status || "Active",
             old_remaining: 0,
             cash_received: 0,
+            party_balance: Number(sale.party_balance ?? 0),
+            party_min_balance: Number(sale.party_min_balance ?? 0),
           }));
 
           const mapped = (sale.items || []).map((r) => {
@@ -147,6 +172,15 @@ export default function SalesForm({ sale, onSubmitted }) {
             status: "Active",
             old_remaining: 0,
             cash_received: 0,
+            party_type: "customer",
+            customer_id: "",
+            vendor_id: "",
+            farmer_id: "",
+            party_balance: 0,
+            party_min_balance: 0,
+            address: "",
+            mobile_no: "",
+            gst_no: "",
           }));
         }
       } catch (err) {
@@ -158,39 +192,104 @@ export default function SalesForm({ sale, onSubmitted }) {
     init();
   }, [isEditMode, sale]);
 
-  // Header handlers
-  const onHeader = async (e) => {
-    let { name, value } = e.target;
-    if (name === "customer_id") {
-      const cid = parseInt(value || 0, 10);
-      const selected = customers.find((c) => Number(c.id) === cid);
+  const onPartyTypeChange = async (e) => {
+    const val = e.target.value;
+    setHeader((p) => ({
+      ...p,
+      party_type: val,
+      customer_id: "",
+      vendor_id: "",
+      farmer_id: "",
+      address: "",
+      mobile_no: "",
+      gst_no: "",
+      party_balance: 0,
+      party_min_balance: 0,
+      old_remaining: 0,
+      cash_received: 0,
+    }));
+  };
+
+  const onPartyChange = async (e) => {
+    const id = e.target.value;
+    const type = header.party_type;
+    if (type === "customer") {
+      const c = customers.find((x) => String(x.id) === String(id));
       setHeader((p) => ({
         ...p,
-        customer_id: cid || "",
-        address: selected?.address || "",
-        mobile_no: selected?.phone || "",
-        gst_no: (selected?.gst_no || selected?.GST_No || ""),
+        customer_id: id,
+        vendor_id: "",
+        farmer_id: "",
+        address: c?.address || "",
+        mobile_no: c?.phone || "",
+        gst_no: c?.gst_no || c?.GST_No || "",
+        party_balance: Number(c?.balance ?? 0),
+        party_min_balance: Number(c?.min_balance ?? 0),
       }));
-      setErrors((er) => ({ ...er, header: { ...er.header, customer_id: false } }));
-      if (cid) {
+      if (id) {
         try {
-          const res = await customersAPI.getBalance(cid);
-          const prevDue = Number(res?.data?.previous_due || 0);
-          setHeader((p) => ({ ...p, old_remaining: prevDue, cash_received: 0 }));
+          const { data } = await salesAPI.getPartyPreviousDue("customer", id);
+          setHeader((p) => ({ ...p, old_remaining: Number(data?.previous_due || 0), cash_received: 0 }));
         } catch {
           setHeader((p) => ({ ...p, old_remaining: 0, cash_received: 0 }));
         }
-      } else {
-        setHeader((p) => ({ ...p, old_remaining: 0, cash_received: 0 }));
       }
-      return;
+    } else if (type === "vendor") {
+      const v = vendors.find((x) => String(x.id) === String(id));
+      setHeader((p) => ({
+        ...p,
+        vendor_id: id,
+        customer_id: "",
+        farmer_id: "",
+        address: v?.address || "",
+        mobile_no: v?.contact_number || "",
+        gst_no: v?.gst_no || "",
+        party_balance: Number(v?.balance ?? 0),
+        party_min_balance: Number(v?.min_balance ?? 0),
+        old_remaining: 0,
+        cash_received: 0,
+      }));
+      if (id) {
+        try {
+          const { data } = await salesAPI.getPartyPreviousDue("vendor", id);
+          setHeader((p) => ({ ...p, old_remaining: Number(data?.previous_due || 0), cash_received: 0 }));
+        } catch {
+          setHeader((p) => ({ ...p, old_remaining: 0, cash_received: 0 }));
+        }
+      }
+    } else {
+      const f = farmers.find((x) => String(x.id) === String(id));
+      setHeader((p) => ({
+        ...p,
+        farmer_id: id,
+        customer_id: "",
+        vendor_id: "",
+        address: "",
+        mobile_no: f?.contact_number || "",
+        gst_no: "",
+        party_balance: Number(f?.balance ?? 0),
+        party_min_balance: Number(f?.min_balance ?? 0),
+        old_remaining: 0,
+        cash_received: 0,
+      }));
+      if (id) {
+        try {
+          const { data } = await salesAPI.getPartyPreviousDue("farmer", id);
+          setHeader((p) => ({ ...p, old_remaining: Number(data?.previous_due || 0), cash_received: 0 }));
+        } catch {
+          setHeader((p) => ({ ...p, old_remaining: 0, cash_received: 0 }));
+        }
+      }
     }
+  };
+
+  const onHeader = async (e) => {
+    let { name, value } = e.target;
     if (name === "cash_received") value = value === "" ? "" : Number(value);
     setHeader((p) => ({ ...p, [name]: value }));
     setErrors((er) => ({ ...er, header: { ...er.header, [name]: false } }));
   };
 
-  // Auto-margin compute
   const recomputeSellingRate = (row) => {
     const q = Number(row.qty) || 0;
     const cost = Number(row.cost_rate) || 0;
@@ -202,7 +301,6 @@ export default function SalesForm({ sale, onSubmitted }) {
     return row.rate || 0;
   };
 
-  // Rows change
   const onRow = (i, field, value) => {
     setRows((prev) => {
       const next = [...prev];
@@ -253,12 +351,11 @@ export default function SalesForm({ sale, onSubmitted }) {
     });
   };
 
-  // PurchaseForm-style calculations
   const calc = (r) => {
     const qty = Number(r.qty) || 0;
     const rate = Number(r.rate) || 0;
     const base = qty * rate;
-    const perUnitDisc = (rate * (Number(r.d1_percent) || 0)) / 100; // per-unit from %
+    const perUnitDisc = (rate * (Number(r.d1_percent) || 0)) / 100;
     const totalDisc = qty * perUnitDisc;
     const taxable = Math.max(base - totalDisc, 0);
     const gstAmt = (taxable * (Number(r.gst_percent) || 0)) / 100;
@@ -286,9 +383,11 @@ export default function SalesForm({ sale, onSubmitted }) {
   const saleTotal = Number(totals.final || 0);
   const netDue = Math.max(Number(header.old_remaining || 0) + saleTotal - Number(header.cash_received || 0), 0);
 
-  // Validation
   const validateHeader = () => {
-    const req = ["date", "customer_id", "sale_no"];
+    const req = ["date", "sale_no"];
+    if (header.party_type === "customer") req.push("customer_id");
+    if (header.party_type === "vendor") req.push("vendor_id");
+    if (header.party_type === "farmer") req.push("farmer_id");
     const newErr = {};
     let firstKey = null;
     req.forEach((k) => {
@@ -323,17 +422,14 @@ export default function SalesForm({ sale, onSubmitted }) {
     return first.rowIdx !== null ? first : null;
   };
 
-  // Submit
   const onSubmit = async (e) => {
     e.preventDefault();
-
     const missingHeaderKey = validateHeader();
     if (missingHeaderKey) {
       Swal.fire({ icon: "error", title: "Header missing", text: `Please fill ${missingHeaderKey.replace("_", " ")}` });
       headerRefs[missingHeaderKey]?.current?.focus?.();
       return;
     }
-
     const firstBad = validateRows();
     if (firstBad) {
       Swal.fire({ icon: "error", title: "Item row missing", text: `Please fill row ${firstBad.rowIdx + 1} - ${firstBad.field}` });
@@ -350,11 +446,13 @@ export default function SalesForm({ sale, onSubmitted }) {
         return;
       }
 
-      const derivedPaymentStatus =
-        netDue <= 0 ? "Paid" : Number(header.cash_received || 0) > 0 ? "Partial" : "Unpaid";
+      const derivedPaymentStatus = netDue <= 0 ? "Paid" : Number(header.cash_received || 0) > 0 ? "Partial" : "Unpaid";
 
       const payload = {
-        customer_id: header.customer_id,
+        party_type: header.party_type,
+        customer_id: header.party_type === "customer" ? header.customer_id : null,
+        vendor_id:   header.party_type === "vendor"   ? header.vendor_id   : null,
+        farmer_id:   header.party_type === "farmer"   ? header.farmer_id   : null,
         bill_no: header.sale_no,
         bill_date: header.date,
         status: header.status || "Active",
@@ -365,7 +463,7 @@ export default function SalesForm({ sale, onSubmitted }) {
         items: rows.map((r) => ({
           product_id: r.product_id,
           qty: Number(r.qty),
-          discount_rate: Number(r.d1_percent || 0),   // percent
+          discount_rate: Number(r.d1_percent || 0),
           gst_percent: Number(r.gst_percent || 0),
           unit: r.unit || "PCS",
           rate: Number(r.rate || 0),
@@ -393,11 +491,13 @@ export default function SalesForm({ sale, onSubmitted }) {
         });
       }
 
-      // Reset
       setHeader({
         sale_no: "",
         date: "",
+        party_type: "customer",
         customer_id: "",
+        vendor_id: "",
+        farmer_id: "",
         address: "",
         mobile_no: "",
         gst_no: "",
@@ -407,6 +507,8 @@ export default function SalesForm({ sale, onSubmitted }) {
         status: "Active",
         old_remaining: 0,
         cash_received: 0,
+        party_balance: 0,
+        party_min_balance: 0,
       });
       setRows([{ ...emptyRow }]);
       setErrors({ header: {}, rows: {} });
@@ -424,7 +526,6 @@ export default function SalesForm({ sale, onSubmitted }) {
     <form onSubmit={onSubmit} className="bg-white shadow-lg rounded-xl p-6 mb-6">
       <h2 className="text-xl font-bold mb-4">{isEditMode ? "Update Sale" : "Create Sale"}</h2>
 
-      {/* Header + Summary */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <div className="lg:col-span-1">
           <div className="bg-white border rounded-xl shadow-sm p-4">
@@ -458,11 +559,19 @@ export default function SalesForm({ sale, onSubmitted }) {
               </div>
               <div className="pt-2 border-t">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-gray-600">Customer</span>
+                  <span className="text-xs text-gray-600">Party</span>
                   <span className="text-xs text-gray-800">
                     {(() => {
-                      const c = customers.find((x) => Number(x.id) === Number(header.customer_id));
-                      return c?.name || "-";
+                      if (header.party_type === "customer") {
+                        const c = customers.find((x) => Number(x.id) === Number(header.customer_id));
+                        return c?.name || "-";
+                      } else if (header.party_type === "vendor") {
+                        const v = vendors.find((x) => Number(x.id) === Number(header.vendor_id));
+                        return v?.vendor_name || v?.name || "-";
+                      } else {
+                        const f = farmers.find((x) => Number(x.id) === Number(header.farmer_id));
+                        return f?.name || "-";
+                      }
                     })()}
                   </span>
                 </div>
@@ -492,25 +601,60 @@ export default function SalesForm({ sale, onSubmitted }) {
               </div>
 
               <div className="flex flex-col">
-                <label htmlFor="customer_id" className="text-sm text-gray-600 mb-1">Customer</label>
+                <label className="text-sm text-gray-600 mb-1">Party Type</label>
                 <select
-                  id="customer_id"
-                  name="customer_id"
-                  ref={headerRefs.customer_id}
-                  className={`border p-2 rounded-lg ${errors.header.customer_id ? errClass : ""}`}
-                  value={header.customer_id}
-                  onChange={onHeader}
+                  className="border p-2 rounded-lg"
+                  value={header.party_type}
+                  onChange={onPartyTypeChange}
                 >
-                  <option value="">Select Customer</option>
-                  {customers.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                  <option value="customer">Customer</option>
+                  <option value="vendor">Vendor</option>
+                  <option value="farmer">Farmer</option>
                 </select>
               </div>
 
               <div className="flex flex-col">
-                <label htmlFor="mobile_no" className="text-sm text-gray-600 mb-1">Mobile No.</label>
+                <label className="text-sm text-gray-600 mb-1">
+                  {header.party_type === "customer" ? "Customer" : header.party_type === "vendor" ? "Vendor" : "Farmer"}
+                </label>
+                <select
+                  className={`border p-2 rounded-lg ${
+                    errors.header[header.party_type === "customer" ? "customer_id" : header.party_type === "vendor" ? "vendor_id" : "farmer_id"]
+                      ? errClass
+                      : ""
+                  }`}
+                  value={
+                    header.party_type === "customer"
+                      ? header.customer_id
+                      : header.party_type === "vendor"
+                      ? header.vendor_id
+                      : header.farmer_id
+                  }
+                  onChange={onPartyChange}
+                >
+                  <option value="">Select</option>
+                  {(header.party_type === "customer" ? customers : header.party_type === "vendor" ? vendors : farmers).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {header.party_type === "vendor" ? (p.vendor_name || p.name) : p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* <div className="flex flex-col">
+                <label className="text-sm text-gray-600 mb-1">Bill No</label>
                 <input
-                  id="mobile_no"
-                  ref={headerRefs.mobile_no}
+                  className={`border p-2 rounded-lg ${errors.header.sale_no ? errClass : ""}`}
+                  value={header.sale_no}
+                  onChange={(e) => onHeader({ target: { name: "sale_no", value: e.target.value } })}
+                />
+              </div> */}
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="flex flex-col">
+                <label className="text-sm text-gray-600 mb-1">Mobile No.</label>
+                <input
                   className="border p-2 rounded-lg"
                   placeholder="Mobile"
                   value={header.mobile_no}
@@ -519,24 +663,18 @@ export default function SalesForm({ sale, onSubmitted }) {
               </div>
 
               <div className="flex flex-col">
-                <label htmlFor="gst_no" className="text-sm text-gray-600 mb-1">GST No.</label>
+                <label className="text-sm text-gray-600 mb-1">GST No.</label>
                 <input
-                  id="gst_no"
-                  ref={headerRefs.gst_no}
                   className="border p-2 rounded-lg"
                   placeholder="GST No."
                   value={header.gst_no}
                   onChange={(e) => setHeader((p) => ({ ...p, gst_no: e.target.value }))}
                 />
               </div>
-            </div>
 
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex flex-col">
-                <label htmlFor="address" className="text-sm text-gray-600 mb-1">Address</label>
+                <label className="text-sm text-gray-600 mb-1">Address</label>
                 <input
-                  id="address"
-                  ref={headerRefs.address}
                   className="border p-2 rounded-lg"
                   placeholder="Address"
                   value={header.address}
@@ -545,7 +683,7 @@ export default function SalesForm({ sale, onSubmitted }) {
               </div>
 
               <div className="flex flex-col">
-                <label htmlFor="cash_received" className="text-sm font-medium text-gray-700 mb-1">Paid Amount</label>
+                <label className="text-sm font-medium text-gray-700 mb-1">Paid Amount</label>
                 <input
                   id="cash_received"
                   ref={headerRefs.cash_received}
@@ -565,12 +703,20 @@ export default function SalesForm({ sale, onSubmitted }) {
                   Max allowed: {fx(Number(header.old_remaining || 0) + Number(totals.final || 0))}
                 </span>
               </div>
+            </div>
 
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="flex flex-col">
-                <label htmlFor="payment_method" className="text-sm text-gray-600 mb-1">Payment Method</label>
+                <label className="text-sm text-gray-600 mb-1">Party Balance</label>
+                <input className="border p-2 rounded-lg bg-gray-100" value={fx(header.party_balance)} readOnly />
+              </div>
+              {/* <div className="flex flex-col">
+                <label className="text-sm text-gray-600 mb-1">Min Balance</label>
+                <input className="border p-2 rounded-lg bg-gray-100" value={fx(header.party_min_balance)} readOnly />
+              </div> */}
+              <div className="flex flex-col">
+                <label className="text-sm text-gray-600 mb-1">Payment Method</label>
                 <select
-                  id="payment_method"
-                  ref={headerRefs.payment_method}
                   className="border p-2 rounded-lg"
                   value={header.payment_method}
                   onChange={(e) => setHeader((p) => ({ ...p, payment_method: e.target.value }))}
@@ -582,7 +728,6 @@ export default function SalesForm({ sale, onSubmitted }) {
                   <option>UPI</option>
                 </select>
               </div>
-
               <div className="flex flex-col">
                 <label className="text-sm text-gray-600 mb-1">Payment Status</label>
                 <div>
@@ -627,12 +772,16 @@ export default function SalesForm({ sale, onSubmitted }) {
           </thead>
           <tbody>
             {rows.map((r, i) => {
-              const { base, perUnitDisc, totalDisc, taxable, gstAmt, final } = calc(r);
+              const base = Number(r.qty || 0) * Number(r.rate || 0);
+              const perUnitDisc = (Number(r.rate || 0) * (Number(r.d1_percent) || 0)) / 100;
+              const totalDisc = Number(r.qty || 0) * perUnitDisc;
+              const taxable = Math.max(base - totalDisc, 0);
+              const gstAmt = (taxable * (Number(r.gst_percent) || 0)) / 100;
+              const final = taxable + gstAmt;
+
               return (
                 <tr key={i} className="odd:bg-white even:bg-gray-50">
                   <td className="px-2 py-1 border text-center">{i + 1}</td>
-
-                  {/* Product selector entry point; integrate your modal if any */}
                   <td className="px-2 py-1 border">
                     <div className="flex gap-1">
                       <select
@@ -641,6 +790,15 @@ export default function SalesForm({ sale, onSubmitted }) {
                         onChange={(e) => {
                           const pid = e.target.value;
                           onRow(i, "product_id", pid);
+                          const product = products.find((p) => String(p.id) === String(pid));
+                          if (product) {
+                            onRow(i, "item_name", product.product_name || "");
+                            onRow(i, "hsn_code", product.hsn_code || "");
+                            onRow(i, "cost_rate", Number(product.cost_rate || 0));
+                            onRow(i, "gst_percent", Number(product.gst_percent || 0));
+                            onRow(i, "available", Number(product.available || 0));
+                            onRow(i, "qty", 1);
+                          }
                         }}
                       >
                         <option value="">Select</option>
@@ -658,15 +816,12 @@ export default function SalesForm({ sale, onSubmitted }) {
                       />
                     </div>
                   </td>
-
                   <td className="px-2 py-1 border bg-gray-100">
                     <input readOnly className="border rounded w-full h-8 px-2 text-xs" value={r.hsn_code} />
                   </td>
-
                   <td className="px-2 py-1 border text-center">
                     <input readOnly className="border rounded p-1 w-20 bg-gray-100" value={r.available ?? 0} />
                   </td>
-
                   <td className="px-2 py-1 border text-center">
                     <input
                       type="number"
@@ -677,7 +832,6 @@ export default function SalesForm({ sale, onSubmitted }) {
                       onChange={(e) => onRow(i, "qty", e.target.value)}
                     />
                   </td>
-
                   <td className="px-2 py-1 border text-right">
                     <input
                       type="number"
@@ -690,9 +844,7 @@ export default function SalesForm({ sale, onSubmitted }) {
                       {useCostMargin && !r.manualRate ? `Margin: ${getRowMarginPercent(r)}% (auto)` : "Manual rate"}
                     </div>
                   </td>
-
                   <td className="px-2 py-1 border text-right">{fx(base)}</td>
-
                   <td className="px-2 py-1 border text-right">
                     <input
                       type="number"
@@ -701,8 +853,6 @@ export default function SalesForm({ sale, onSubmitted }) {
                       onChange={(e) => onRow(i, "d1_percent", e.target.value)}
                     />
                   </td>
-
-                  {/* Per Qty Disc (derived) */}
                   <td className="px-2 py-1 border text-right">
                     <div className="flex flex-col items-end">
                       <input
@@ -716,11 +866,9 @@ export default function SalesForm({ sale, onSubmitted }) {
                       </div>
                     </div>
                   </td>
-
                   <td className="px-2 py-1 border text-right">
                     <span className="font-semibold">{fx(totalDisc)}</span>
                   </td>
-
                   <td className="px-2 py-1 border text-right">
                     <input
                       type="number"
@@ -729,10 +877,8 @@ export default function SalesForm({ sale, onSubmitted }) {
                       onChange={(e) => onRow(i, "gst_percent", e.target.value)}
                     />
                   </td>
-
                   <td className="px-2 py-1 border text-right">{fx(gstAmt)}</td>
                   <td className="px-2 py-1 border text-right">{fx(final)}</td>
-
                   <td className="px-2 py-1 border text-center">
                     <button
                       type="button"
@@ -814,7 +960,10 @@ export default function SalesForm({ sale, onSubmitted }) {
               setHeader({
                 sale_no: "",
                 date: "",
+                party_type: "customer",
                 customer_id: "",
+                vendor_id: "",
+                farmer_id: "",
                 address: "",
                 mobile_no: "",
                 gst_no: "",
@@ -824,6 +973,8 @@ export default function SalesForm({ sale, onSubmitted }) {
                 status: "Active",
                 old_remaining: 0,
                 cash_received: 0,
+                party_balance: 0,
+                party_min_balance: 0,
               });
               setRows([{ ...emptyRow }]);
               setErrors({ header: {}, rows: {} });

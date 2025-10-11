@@ -1,3 +1,4 @@
+// models/sales.model.js
 const mysql = require('mysql2/promise');
 
 const Sales = {
@@ -29,11 +30,13 @@ const Sales = {
     }
   },
 
-  // Create sale: inserts sale + items, updates stock, computes totals,
-  // computes previous due, posts payment (sale_payments), and sets payment_status
+  // Create sale (party-agnostic)
   create: async (payload) => {
     const {
-      customer_id,
+      party_type,              // 'customer' | 'vendor' | 'farmer'
+      customer_id = null,
+      vendor_id = null,
+      farmer_id = null,
       bill_no,
       bill_date,
       payment_status = 'Unpaid',
@@ -41,10 +44,19 @@ const Sales = {
       remarks = null,
       status = 'Active',
       items = [],
-      cash_received = 0, // NEW
+      cash_received = 0,
     } = payload;
 
-    if (!customer_id || !bill_date) throw new Error('customer_id and bill_date are required');
+    if (!bill_date) throw new Error('bill_date is required');
+    if (!['customer', 'vendor', 'farmer'].includes(party_type)) {
+      throw new Error('party_type must be customer|vendor|farmer');
+    }
+    const chosenId =
+      party_type === 'customer' ? customer_id :
+      party_type === 'vendor'   ? vendor_id   :
+      party_type === 'farmer'   ? farmer_id   : null;
+    if (!chosenId) throw new Error(`${party_type}_id is required`);
+    if (!Array.isArray(items) || items.length === 0) throw new Error('items[] required');
 
     const conn = await Sales.getConnection();
     try {
@@ -62,71 +74,73 @@ const Sales = {
         finalBillNo = `BILL-${String(lastNo + 1).padStart(3, '0')}`;
       }
 
-      // Insert sale header with zero totals initially
+      // Insert header (only one FK set + party_type)
       const [saleRes] = await conn.execute(
         `INSERT INTO sales
-         (customer_id, bill_no, bill_date, total_taxable, total_gst, total_amount, payment_status, payment_method, remarks, status)
-         VALUES (?, ?, ?, 0.00, 0.00, 0.00, ?, ?, ?, ?)`,
-        [customer_id, finalBillNo, bill_date, payment_status, payment_method, remarks, status]
+         (customer_id, vendor_id, farmer_id, party_type, bill_no, bill_date, total_taxable, total_gst, total_amount, payment_status, payment_method, remarks, status)
+         VALUES (?, ?, ?, ?, ?, ?, 0.00, 0.00, 0.00, ?, ?, ?, ?)`,
+        [
+          party_type === 'customer' ? chosenId : null,
+          party_type === 'vendor'   ? chosenId : null,
+          party_type === 'farmer'   ? chosenId : null,
+          party_type,
+          finalBillNo,
+          bill_date,
+          payment_status,
+          payment_method,
+          remarks,
+          status,
+        ]
       );
       const sale_id = saleRes.insertId;
 
-      let total_taxable = 0, total_gst = 0, total_amount = 0;
-
       // Insert items and decrement stock
-      if (Array.isArray(items) && items.length) {
-        for (const item of items) {
-          if (!item.product_id || !item.qty) continue;
+      let total_taxable = 0, total_gst = 0, total_amount = 0;
+      for (const item of items) {
+        if (!item.product_id || !item.qty) continue;
 
-          // Lock product row for stock correctness
-          const [prodRows] = await conn.execute(
-            `SELECT 
-               id,
-               total AS rate,
-               CAST(NULLIF(REPLACE(gst, '%', ''), '') AS DECIMAL(5,2)) AS gst_percent,
-               size
-             FROM products
-             WHERE id=? FOR UPDATE`,
-            [item.product_id]
-          );
-          if (!prodRows.length) throw new Error(`product ${item.product_id} not found`);
+        const [prodRows] = await conn.execute(
+          `SELECT 
+             id,
+             total AS rate,
+             CAST(NULLIF(REPLACE(gst, '%', ''), '') AS DECIMAL(5,2)) AS gst_percent,
+             size
+           FROM products
+           WHERE id=? FOR UPDATE`,
+          [item.product_id]
+        );
+        if (!prodRows.length) throw new Error(`product ${item.product_id} not found`);
 
-          const prod = prodRows[0];
-          const currentSizeNum = Number(prod.size || 0);
-          const qty = Number(item.qty || 0);
-          if (!Number.isFinite(qty) || qty <= 0) throw new Error(`invalid qty for product ${item.product_id}`);
-
-          // Stock check against size
-          if (qty > currentSizeNum) {
-            throw new Error(`insufficient stock for product ${item.product_id}: available ${currentSizeNum}, requested ${qty}`);
-          }
-
-          // Pricing
-          const rate = Number(item.rate ?? prod.rate ?? 0);
-          const discount_rate = Number(item.discount_rate ?? 0);
-          const discount_amount = Number(item.discount_amount ?? (rate * qty * discount_rate) / 100);
-          const taxable_amount = Number((rate * qty) - discount_amount);
-          const gst_percent = Number(item.gst_percent ?? prod.gst_percent ?? 0);
-          const gst_amount = Number((taxable_amount * gst_percent) / 100);
-          const net_total = Number(taxable_amount + gst_amount);
-          const unit = item.unit || 'PCS';
-
-          // Insert sale item
-          await conn.execute(
-            `INSERT INTO sale_items
-             (sale_id, product_id, rate, qty, discount_rate, discount_amount, taxable_amount, gst_percent, gst_amount, net_total, unit, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
-            [sale_id, item.product_id, rate, qty, discount_rate, discount_amount, taxable_amount, gst_percent, gst_amount, net_total, unit]
-          );
-
-          // Decrement size (stock)
-          const newSize = currentSizeNum - qty;
-          await conn.execute(`UPDATE products SET size = ? WHERE id = ?`, [String(newSize), item.product_id]);
-
-          total_taxable += taxable_amount;
-          total_gst += gst_amount;
-          total_amount += net_total;
+        const prod = prodRows[0];
+        const currentSizeNum = Number(prod.size || 0);
+        const qty = Number(item.qty || 0);
+        if (!Number.isFinite(qty) || qty <= 0) throw new Error(`invalid qty for product ${item.product_id}`);
+        if (qty > currentSizeNum) {
+          throw new Error(`insufficient stock for product ${item.product_id}: available ${currentSizeNum}, requested ${qty}`);
         }
+
+        const rate = Number(item.rate ?? prod.rate ?? 0);
+        const discount_rate = Number(item.discount_rate ?? 0);
+        const discount_amount = Number(item.discount_amount ?? (rate * qty * discount_rate) / 100);
+        const taxable_amount = Number((rate * qty) - discount_amount);
+        const gst_percent = Number(item.gst_percent ?? prod.gst_percent ?? 0);
+        const gst_amount = Number((taxable_amount * gst_percent) / 100);
+        const net_total = Number(taxable_amount + gst_amount);
+        const unit = item.unit || 'PCS';
+
+        await conn.execute(
+          `INSERT INTO sale_items
+           (sale_id, product_id, rate, qty, discount_rate, discount_amount, taxable_amount, gst_percent, gst_amount, net_total, unit, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
+          [sale_id, item.product_id, rate, qty, discount_rate, discount_amount, taxable_amount, gst_percent, gst_amount, net_total, unit]
+        );
+
+        const newSize = currentSizeNum - qty;
+        await conn.execute(`UPDATE products SET size = ? WHERE id = ?`, [String(newSize), item.product_id]);
+
+        total_taxable += taxable_amount;
+        total_gst += gst_amount;
+        total_amount += net_total;
       }
 
       // Update totals on sale
@@ -135,23 +149,24 @@ const Sales = {
         [total_taxable.toFixed(2), total_gst.toFixed(2), total_amount.toFixed(2), sale_id]
       );
 
-      // Compute previous due (sum sales - sum payments)
+      // Previous due (party-aware): total_sales - total_payments
       const [[agg]] = await conn.query(
         `
         SELECT
           COALESCE((
             SELECT SUM(s.total_amount)
             FROM sales s
-            WHERE s.customer_id = ? AND (s.status IS NULL OR s.status <> 'Cancelled')
+            WHERE s.${party_type}_id = ? AND (s.status IS NULL OR s.status <> 'Cancelled')
           ), 0) AS total_sales,
           COALESCE((
             SELECT SUM(p.amount)
             FROM sale_payments p
-            WHERE p.customer_id = ?
+            WHERE p.party_type = ? AND p.${party_type}_id = ?
           ), 0) AS total_payments
         `,
-        [customer_id, customer_id]
+        [chosenId, party_type, chosenId]
       );
+
       const total_sales = Number(agg?.total_sales || 0);
       const total_payments = Number(agg?.total_payments || 0);
       const previous_due = Math.max(total_sales - total_payments, 0);
@@ -159,16 +174,19 @@ const Sales = {
       // gross_due = previous_due + current sale total
       const gross_due = previous_due + Number(total_amount || 0);
 
-      // Post payment if any
+      // Payment insert (any party)
       const cash = Number(cash_received || 0);
       if (cash > 0) {
         await conn.execute(
-          `INSERT INTO sale_payments (sale_id, customer_id, payment_date, amount, method, remarks)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO sale_payments (sale_id, party_type, customer_id, vendor_id, farmer_id, payment_date, amount, method, remarks)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             sale_id,
-            customer_id,
-            bill_date,                     // record payment on bill date
+            party_type,
+            party_type === 'customer' ? chosenId : null,
+            party_type === 'vendor'   ? chosenId : null,
+            party_type === 'farmer'   ? chosenId : null,
+            bill_date,
             cash.toFixed(2),
             payment_method || 'Cash',
             remarks || null,
@@ -176,7 +194,7 @@ const Sales = {
         );
       }
 
-      // new due and payment status
+      // New due and payment status
       const new_due = Math.max(gross_due - cash, 0);
       let final_payment_status = 'Unpaid';
       if (new_due <= 0 && (cash > 0 || gross_due === 0)) {
@@ -185,7 +203,7 @@ const Sales = {
         final_payment_status = 'Partial';
       }
 
-      // Persist payment_status on sale header
+      // Persist payment_status
       await conn.execute(
         `UPDATE sales SET payment_status=? WHERE id=?`,
         [final_payment_status, sale_id]
@@ -211,14 +229,23 @@ const Sales = {
     }
   },
 
-  // Lightweight list with customer name
+  // List party-aware
   getAll: async () => {
     const conn = await Sales.getConnection();
     try {
       const [rows] = await conn.execute(
-        `SELECT s.*, c.name AS customer_name
+        `SELECT
+           s.*,
+           COALESCE(c.name, v.vendor_name, f.name)                                  AS party_name,
+           COALESCE(c.address, v.address, NULL)                                     AS party_address,
+           COALESCE(c.phone, v.contact_number, f.contact_number)                    AS party_phone,
+           COALESCE(c.GST_No, v.gst_no, NULL)                                       AS party_gst,
+           COALESCE(c.balance, v.balance, f.balance)                                AS party_balance,
+           COALESCE(c.min_balance, v.min_balance, f.min_balance)                    AS party_min_balance
          FROM sales s
          LEFT JOIN customers c ON s.customer_id = c.id
+         LEFT JOIN vendors   v ON s.vendor_id   = v.id
+         LEFT JOIN farmers   f ON s.farmer_id   = f.id
          ORDER BY s.id DESC`
       );
       return rows;
@@ -227,14 +254,23 @@ const Sales = {
     }
   },
 
-  // Single sale with embedded items
+  // Single sale with party fields
   getById: async (id) => {
     const conn = await Sales.getConnection();
     try {
       const [saleRows] = await conn.execute(
-        `SELECT s.*, c.name AS customer_name
+        `SELECT
+           s.*,
+           COALESCE(c.name, v.vendor_name, f.name)                                  AS party_name,
+           COALESCE(c.address, v.address, NULL)                                     AS party_address,
+           COALESCE(c.phone, v.contact_number, f.contact_number)                    AS party_phone,
+           COALESCE(c.GST_No, v.gst_no, NULL)                                       AS party_gst,
+           COALESCE(c.balance, v.balance, f.balance)                                AS party_balance,
+           COALESCE(c.min_balance, v.min_balance, f.min_balance)                    AS party_min_balance
          FROM sales s
          LEFT JOIN customers c ON s.customer_id = c.id
+         LEFT JOIN vendors   v ON s.vendor_id   = v.id
+         LEFT JOIN farmers   f ON s.farmer_id   = f.id
          WHERE s.id=?`,
         [id]
       );
@@ -244,7 +280,8 @@ const Sales = {
         `SELECT si.*, p.product_name AS item_name, p.hsn_code
          FROM sale_items si
          JOIN products p ON si.product_id = p.id
-         WHERE si.sale_id=?`,
+         WHERE si.sale_id=?
+         ORDER BY si.id ASC`,
         [id]
       );
 
@@ -254,45 +291,51 @@ const Sales = {
     }
   },
 
-  // Update sale header and optionally replace items; stock is restored and re-applied
+  // Update party-aware (optional payment on update)
   update: async (id, data) => {
     const conn = await Sales.getConnection();
     try {
       await conn.beginTransaction();
 
-      // Load existing sale
+      // Load existing
       const [existRows] = await conn.execute('SELECT * FROM sales WHERE id=?', [id]);
       if (!existRows.length) throw new Error('sale not found');
-
       const existing = existRows[0];
 
       const {
-        customer_id,
-        bill_no = null,
-        bill_date = null,
-        payment_status = 'Unpaid',
-        payment_method = 'Cash',
-        remarks = null,
-        status = 'Active',
-        items, // optional array to replace
+        party_type, customer_id = null, vendor_id = null, farmer_id = null,
+        bill_no = null, bill_date = null, payment_status = 'Unpaid',
+        payment_method = 'Cash', remarks = null, status = 'Active',
+        items,
+        cash_received = 0, // NEW
       } = data;
 
-      const final_customer_id = customer_id ?? existing.customer_id;
-      const final_bill_no = bill_no ?? existing.bill_no;
-      const final_bill_date = bill_date ?? existing.bill_date;
-      const final_payment_status = payment_status ?? existing.payment_status;
-      const final_payment_method = payment_method ?? existing.payment_method;
-      const final_remarks = remarks ?? existing.remarks;
-      const final_status = status ?? existing.status;
+      if (!bill_date) throw new Error('bill_date is required');
+      if (!['customer','vendor','farmer'].includes(party_type)) throw new Error('party_type must be customer|vendor|farmer');
+      const chosenId =
+        party_type === 'customer' ? customer_id :
+        party_type === 'vendor'   ? vendor_id   :
+        party_type === 'farmer'   ? farmer_id   : null;
+      if (!chosenId) throw new Error(`${party_type}_id is required`);
 
-      if (!final_customer_id) throw new Error('customer_id is required');
-
-      // Update sale header minimal fields first
+      // Update header party FKs + basics
       await conn.execute(
         `UPDATE sales
-         SET customer_id=?, bill_no=?, bill_date=?, payment_status=?, payment_method=?, remarks=?, status=?
+           SET customer_id=?, vendor_id=?, farmer_id=?, party_type=?, bill_no=?, bill_date=?, payment_status=?, payment_method=?, remarks=?, status=?
          WHERE id=?`,
-        [final_customer_id, final_bill_no, final_bill_date, final_payment_status, final_payment_method, final_remarks, final_status, id]
+        [
+          party_type === 'customer' ? chosenId : null,
+          party_type === 'vendor'   ? chosenId : null,
+          party_type === 'farmer'   ? chosenId : null,
+          party_type,
+          bill_no ?? existing.bill_no,
+          bill_date ?? existing.bill_date,
+          payment_status ?? existing.payment_status,
+          payment_method ?? existing.payment_method,
+          remarks ?? existing.remarks,
+          status ?? existing.status,
+          id
+        ]
       );
 
       let total_taxable = Number(existing.total_taxable || 0);
@@ -300,7 +343,7 @@ const Sales = {
       let total_amount = Number(existing.total_amount || 0);
 
       if (Array.isArray(items)) {
-        // 1) Restore stock from old items
+        // Restore stock from old items
         const [oldItems] = await conn.execute(
           `SELECT product_id, qty FROM sale_items WHERE sale_id=?`,
           [id]
@@ -317,12 +360,11 @@ const Sales = {
           }
         }
 
-        // 2) Delete old items
+        // Delete old items
         await conn.execute('DELETE FROM sale_items WHERE sale_id=?', [id]);
 
-        // 3) Insert new items and decrement stock + recalc totals
+        // Insert new items + decrement stock + recalc totals
         total_taxable = 0; total_gst = 0; total_amount = 0;
-
         for (const item of items) {
           if (!item.product_id || !item.qty) continue;
 
@@ -374,6 +416,63 @@ const Sales = {
         );
       }
 
+      // Optional payment on update
+      const cash = Number(cash_received || 0);
+      if (cash > 0) {
+        await conn.execute(
+          `INSERT INTO sale_payments (sale_id, party_type, customer_id, vendor_id, farmer_id, payment_date, amount, method, remarks)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            id,
+            party_type,
+            party_type === 'customer' ? chosenId : null,
+            party_type === 'vendor'   ? chosenId : null,
+            party_type === 'farmer'   ? chosenId : null,
+            bill_date ?? existing.bill_date,
+            cash.toFixed(2),
+            payment_method || existing.payment_method || 'Cash',
+            remarks ?? existing.remarks ?? null,
+          ]
+        );
+      }
+
+      // Recompute aggregates to derive final status
+      const [[agg]] = await conn.query(
+        `
+        SELECT
+          COALESCE((
+            SELECT SUM(s.total_amount)
+            FROM sales s
+            WHERE s.${party_type}_id = ? AND (s.status IS NULL OR s.status <> 'Cancelled')
+          ), 0) AS total_sales,
+          COALESCE((
+            SELECT SUM(p.amount)
+            FROM sale_payments p
+            WHERE p.party_type = ? AND p.${party_type}_id = ?
+          ), 0) AS total_payments
+        `,
+        [chosenId, party_type, chosenId]
+      );
+
+      const total_sales = Number(agg?.total_sales || 0);
+      const total_payments = Number(agg?.total_payments || 0);
+      const gross_due = Math.max(total_sales - total_payments, 0);
+
+      let final_payment_status = 'Unpaid';
+      if (gross_due <= 0 && (cash > 0 || total_amount === 0)) {
+        final_payment_status = 'Paid';
+      } else if (cash > 0 && gross_due > 0) {
+        final_payment_status = 'Partial';
+      } else {
+        // keep provided or existing if no change
+        final_payment_status = payment_status ?? existing.payment_status ?? 'Unpaid';
+      }
+
+      await conn.execute(
+        `UPDATE sales SET payment_status=? WHERE id=?`,
+        [final_payment_status, id]
+      );
+
       await conn.commit();
       return { id, total_taxable, total_gst, total_amount };
     } catch (e) {
@@ -384,7 +483,7 @@ const Sales = {
     }
   },
 
-  // Delete sale (optionally restore stock; here we are not restoring to keep behaviour same as your version)
+  // Delete sale (no stock restore by choice)
   delete: async (id) => {
     const conn = await Sales.getConnection();
     try {
@@ -401,12 +500,12 @@ const Sales = {
     }
   },
 
-  // All sales by customer with embedded items
+  // Party-specific fetch (legacy helper)
   getByCustomerId: async (customer_id) => {
     const conn = await Sales.getConnection();
     try {
       const [rows] = await conn.execute(
-        `SELECT s.*, c.name AS customer_name
+        `SELECT s.*, c.name AS party_name
          FROM sales s
          LEFT JOIN customers c ON s.customer_id = c.id
          WHERE s.customer_id=?

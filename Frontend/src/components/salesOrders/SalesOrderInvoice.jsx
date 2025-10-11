@@ -40,8 +40,8 @@ function InvoiceContent({ data }) {
         </div>
         <div className="text-right text-xs">
           {/* Replace with env/config values */}
-          <div className="font-semibold">Your Company Name</div>
-          <div>Address line 1, City</div>
+          <div className="font-semibold">Bhumisha Organic</div>
+          <div>Address line 1, Bhopal City</div>
           <div>GSTIN: XXYYYYZZZZAAAA</div>
         </div>
       </div>

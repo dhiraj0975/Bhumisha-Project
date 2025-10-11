@@ -305,92 +305,94 @@ const CustomerController = {
       });
       doc.moveDown(0.6);
 
-      // Table config
-      const cols = ['Date/Time','Type','Ref No','Amount','Net Effect','Run Bal','Method','Remarks'];
-      const widths = [90,45,70,60,60,60,60,170];
-      const colAlign = ['left','center','left','right','right','right','left','left'];
-      const colX = widths.reduce((acc, w, i) => {
-        acc.push((i === 0 ? left : acc[i-1] + widths[i-1]));
-        return acc;
-      }, []);
-      const headerH = 18, rowH = 16, bottom = doc.page.height - doc.page.margins.bottom;
+     // Table config
+const cols = ['Date/Time', 'Type', 'Ref No', 'Amount', 'Net Effect', 'Run Bal', 'Method', 'Remarks'];
+const widths = [90, 45, 70, 60, 60, 60, 60, 170];
+const colAlign = ['left', 'center', 'left', 'right', 'right', 'right', 'left', 'left'];
+const colX = widths.reduce((acc, w, i) => {
+  acc.push((i === 0 ? left : acc[i - 1] + widths[i - 1]));
+  return acc;
+}, []);
+const headerH = 18, rowH = 16;
+const bottom = doc.page.height - doc.page.margins.bottom - 30;
 
-      const drawHeader = () => {
-        doc.save();
-        doc.rect(left, doc.y, right - left, headerH).fillColor('#f1f5f9').fill();
-        doc.restore();
-        line(left, doc.y, right, doc.y);
-        doc.fillColor('#111').font('Helvetica-Bold').fontSize(9);
-        cols.forEach((c, i) => {
-          const align = colAlign[i] === 'right' ? 'right' : colAlign[i];
-          doc.text(c, colX[i] + 4, doc.y + 3, { width: widths[i] - 8, align });
-        });
-        line(left, doc.y + headerH, right, doc.y + headerH);
-        doc.y += headerH + 2;
-        doc.fillColor('#000').font('Helvetica');
-      };
+// Draw Header
+const drawHeader = () => {
+  doc.save();
+  doc.rect(left, doc.y, right - left, headerH).fillColor('#f1f5f9').fill();
+  doc.restore();
 
-      const addFooter = () => {
-        const ts = new Date().toLocaleString();
-        doc.fontSize(8).fillColor('#555');
-        doc.text(`Printed: ${ts}`, left, bottom + 6, { width: (right-left)/2, align: 'left' });
-        doc.text(`Page ${doc.page.number}`, left + (right-left)/2, bottom + 6, { width: (right-left)/2, align: 'right' });
-        doc.fillColor('#000');
-      };
+  line(left, doc.y, right, doc.y);
+  doc.fillColor('#111').font('Helvetica-Bold').fontSize(9);
 
-      // Draw table and rows
-      drawHeader();
-      let zebra = false;
-      for (const r of rows) {
-        if (doc.y + rowH > bottom - 30) {
-          addFooter();
-          doc.addPage();
-          drawHeader();
-          zebra = false;
-        }
-        if (zebra) {
-          doc.save();
-          doc.rect(left, doc.y - 1, right - left, rowH).fillColor('#fafafa').fill();
-          doc.restore();
-        }
-        zebra = !zebra;
+  cols.forEach((c, i) => {
+    const align = colAlign[i];
+    doc.text(c, colX[i] + 4, doc.y + 3, { width: widths[i] - 8, align });
+  });
 
-        const data = [
-          r.tx_datetime,
-          r.tx_type,
-          r.ref_no,
-          `₹${fmt(r.amount)}`,
-          `₹${fmt(r.net_effect)}`,
-          `₹${fmt(r.running_balance)}`,
-          r.payment_method || '-',
-          r.note || '',
-        ];
-        doc.fontSize(9).fillColor('#000');
-        data.forEach((v, i) => {
-          doc.text(String(v), colX[i] + 4, doc.y, { width: widths[i] - 8, align: colAlign[i] });
-        });
-        const yLine = doc.y + 12;
-        doc.strokeColor('#cbd5e1'); line(left, yLine, right, yLine); doc.strokeColor('#111');
-        doc.y = yLine + 2;
-      }
+  line(left, doc.y + headerH, right, doc.y + headerH);
+  doc.y += headerH + 2;
+  doc.fillColor('#000').font('Helvetica');
+};
 
-      // Totals box
-      doc.moveDown(0.6);
-      const sumLeft = left + (right-left) * 0.45;
-      const sumWidth = right - sumLeft;
-      doc.rect(sumLeft, doc.y, sumWidth, 54).lineWidth(0.8).strokeColor('#0f172a').stroke();
-      [
-        ['Opening', totals.opening_balance],
-        ['Total Invoiced', totals.total_invoiced],
-        ['Total Paid', totals.total_paid],
-        ['Outstanding', totals.outstanding_as_of || totals.outstanding_as_of_to],
-      ].forEach(([k, v], idx) => {
-        const y = doc.y + 4 + idx * 13;
-        doc.font('Helvetica').fontSize(9).fillColor('#111').text(k, sumLeft + 8, y, { width: sumWidth/2 - 10, align: 'left' });
-        doc.font('Helvetica-Bold').fillColor('#000').text(`₹${fmt(v)}`, sumLeft + sumWidth/2, y, { width: sumWidth/2 - 10, align: 'right' });
-      });
+// Footer with proper page number
+const addFooter = () => {
+  const ts = new Date().toLocaleString();
+  const footerY = doc.page.height - doc.page.margins.bottom + 5;
+  doc.fontSize(8).fillColor('#555');
+  doc.text(`Printed: ${ts}`, left, footerY, { width: (right - left) / 2, align: 'left' });
+  doc.text(`Page ${doc.page.number}`, left + (right - left) / 2, footerY, {
+    width: (right - left) / 2,
+    align: 'right',
+  });
+  doc.fillColor('#000');
+};
 
-      addFooter();
+// Draw table rows
+drawHeader();
+let zebra = false;
+
+for (const r of rows) {
+  if (doc.y + rowH > bottom) {
+    addFooter();
+    doc.addPage();
+    drawHeader();
+    zebra = false;
+  }
+
+  if (zebra) {
+    doc.save();
+    doc.rect(left, doc.y - 1, right - left, rowH).fillColor('#fafafa').fill();
+    doc.restore();
+  }
+  zebra = !zebra;
+
+  const data = [
+    r.tx_datetime,
+    r.tx_type,
+    r.ref_no,
+    `₹${fmt(r.amount)}`,
+    `₹${fmt(r.net_effect)}`,
+    `₹${fmt(r.running_balance)}`,
+    r.payment_method || '-',
+    r.note || '',
+  ];
+
+  doc.fontSize(9).fillColor('#000');
+  data.forEach((v, i) => {
+    doc.text(String(v), colX[i] + 4, doc.y, { width: widths[i] - 8, align: colAlign[i] });
+  });
+
+  const yLine = doc.y + 12;
+  doc.strokeColor('#cbd5e1');
+  line(left, yLine, right, yLine);
+  doc.strokeColor('#111');
+  doc.y = yLine + 2;
+}
+
+// Add final footer
+addFooter();
+
       doc.end();
     };
 

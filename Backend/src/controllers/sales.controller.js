@@ -1,60 +1,64 @@
-
-
-
 // controllers/sales.controller.js
 const Sales = require('../models/sales.model');
 const SaleItems = require('../models/saleItems.model');
 
 const SalesController = {
-async createSale(req, res) {
-  try {
-    const {
-      customer_id,
-      bill_no,
-      bill_date,
-      items,
-      status = 'Active',
-      payment_status = 'Unpaid',
-      payment_method = 'Cash',
-      remarks = null,
-      cash_received = 0,          // NEW
-    } = req.body;
+  async createSale(req, res) {
+    try {
+      const {
+        party_type,          // 'customer' | 'vendor' | 'farmer'
+        customer_id, vendor_id, farmer_id,
+        bill_no, bill_date,
+        items,
+        status = 'Active',
+        payment_status = 'Unpaid',
+        payment_method = 'Cash',
+        remarks = null,
+        cash_received = 0,
+      } = req.body;
 
-    if (!customer_id || !bill_date || !Array.isArray(items) || !items.length) {
-      return res.status(400).json({ error: 'Customer, bill_date and items[] required' });
+      if (!bill_date || !Array.isArray(items) || !items.length) {
+        return res.status(400).json({ error: 'bill_date and items[] required' });
+      }
+      if (!['customer','vendor','farmer'].includes(party_type)) {
+        return res.status(400).json({ error: "party_type must be 'customer' | 'vendor' | 'farmer'" });
+      }
+      const chosenId =
+        party_type === 'customer' ? customer_id :
+        party_type === 'vendor'   ? vendor_id   :
+        party_type === 'farmer'   ? farmer_id   : null;
+      if (!chosenId) {
+        return res.status(400).json({ error: `${party_type}_id is required` });
+      }
+
+      const result = await Sales.create({
+        party_type,
+        customer_id, vendor_id, farmer_id,
+        bill_no, bill_date,
+        status, payment_status, payment_method, remarks,
+        items,
+        cash_received: Number(cash_received || 0),
+      });
+
+      return res.status(201).json({
+        message: 'Sale created successfully',
+        id: result.id,
+        bill_no: result.bill_no,
+        total_taxable: result.total_taxable,
+        total_gst: result.total_gst,
+        total_amount: result.total_amount,
+        previous_due: result.previous_due,
+        cash_received: result.cash_received,
+        new_due: result.new_due,
+        payment_status: result.payment_status,
+      });
+    } catch (err) {
+      console.error('createSale error:', err);
+      return res.status(400).json({ error: err.message || 'Server Error' });
     }
+  },
 
-    const result = await Sales.create({
-      customer_id,
-      bill_no,
-      bill_date,
-      status,
-      payment_status,
-      payment_method,
-      remarks,
-      items,
-      cash_received: Number(cash_received || 0),  // pass to model
-    });
-
-    return res.status(201).json({
-      message: 'Sale created successfully',
-      id: result.id,
-      bill_no: result.bill_no,
-      total_taxable: result.total_taxable,
-      total_gst: result.total_gst,
-      total_amount: result.total_amount,
-      previous_due: result.previous_due,      // NEW
-      cash_received: result.cash_received,    // NEW
-      new_due: result.new_due,                // NEW
-      payment_status: result.payment_status,  // possibly overwritten to Paid/Partial/Unpaid
-    });
-  } catch (err) {
-    console.error('createSale error:', err);
-    return res.status(400).json({ error: err.message || 'Server Error' }); // bubble-up
-  }
-},
-
-  async getSales(req, res) {
+  async getSales(_req, res) {
     try {
       const sales = await Sales.getAll();
       return res.json(sales);
@@ -70,26 +74,40 @@ async createSale(req, res) {
       if (!sale_id) return res.status(400).json({ error: 'Invalid sale ID' });
       const sale = await Sales.getById(sale_id);
       if (!sale) return res.status(404).json({ error: 'Sale not found' });
-      const items = await SaleItems.getBySaleId(sale_id);
-      return res.json({ ...sale, items });
+      // items already embedded by model.getById
+      return res.json(sale);
     } catch (err) {
       console.error('getSaleByIdWithItems error:', err);
       return res.status(500).json({ error: 'Server Error' });
     }
-    },
+  },
 
   async updateSale(req, res) {
     try {
       const sale_id = Number(req.params.id);
       if (!sale_id) return res.status(400).json({ error: 'Invalid sale ID' });
 
-      let { customer_id, bill_no = null, bill_date = null, items, status, payment_status, payment_method, remarks } = req.body;
-      if (!customer_id) return res.status(400).json({ error: 'Customer ID is required' });
-      if (!bill_date) return res.status(400).json({ error: 'Bill date is required' });
+      const {
+        party_type, customer_id, vendor_id, farmer_id,
+        bill_no = null, bill_date = null, items,
+        status, payment_status, payment_method, remarks,
+         cash_received = 0, // NEW
+      } = req.body;
 
-      // Replace items and recompute totals using model.update flow
+      if (!bill_date) return res.status(400).json({ error: 'Bill date is required' });
+      if (!['customer','vendor','farmer'].includes(party_type)) {
+        return res.status(400).json({ error: "party_type must be 'customer' | 'vendor' | 'farmer'" });
+      }
+      const chosenId =
+        party_type === 'customer' ? customer_id :
+        party_type === 'vendor'   ? vendor_id   :
+        party_type === 'farmer'   ? farmer_id   : null;
+      if (!chosenId) return res.status(400).json({ error: `${party_type}_id is required` });
+
       const result = await Sales.update(sale_id, {
-        customer_id, bill_no, bill_date, status, payment_status, payment_method, remarks, items
+        party_type, customer_id, vendor_id, farmer_id,
+        bill_no, bill_date, status, payment_status, payment_method, remarks, items,
+         cash_received: Number(cash_received || 0), // NEW
       });
 
       return res.json({
@@ -100,7 +118,7 @@ async createSale(req, res) {
       });
     } catch (err) {
       console.error('updateSale error:', err);
-      return res.status(400).json({ error: err.message || 'Server Error' }); // bubble-up
+      return res.status(400).json({ error: err.message || 'Server Error' });
     }
   },
 
@@ -116,7 +134,7 @@ async createSale(req, res) {
     }
   },
 
-  async getNewBillNo(req, res) {
+  async getNewBillNo(_req, res) {
     try {
       const bill_no = await Sales.getNewBillNo();
       return res.json({ bill_no });
@@ -126,21 +144,46 @@ async createSale(req, res) {
     }
   },
 
-  async getAllSalesWithItems(req, res) {
+  // Optional: heavy endpoint with embedded items list
+ async getPartyPreviousDue(req, res) {
     try {
-      const sales = await Sales.getAll();
-      const withItems = await Promise.all(
-        sales.map(async (s) => {
-          const items = await SaleItems.getBySaleId(s.id);
-          return { ...s, items };
-        })
-      );
-      return res.json(withItems);
+      const party_type = String(req.params.type || '').toLowerCase();
+      const party_id = Number(req.params.id);
+      if (!['customer','vendor','farmer'].includes(party_type)) {
+        return res.status(400).json({ error: "type must be 'customer' | 'vendor' | 'farmer'" });
+      }
+      if (!party_id) return res.status(400).json({ error: 'Invalid party id' });
+
+      const conn = await require('../models/sales.model').getConnection();
+      try {
+        const [[agg]] = await conn.query(
+          `
+          SELECT
+            COALESCE((
+              SELECT SUM(s.total_amount)
+              FROM sales s
+              WHERE s.${party_type}_id = ? AND (s.status IS NULL OR s.status <> 'Cancelled')
+            ), 0) AS total_sales,
+            COALESCE((
+              SELECT SUM(p.amount)
+              FROM sale_payments p
+              WHERE p.party_type = ? AND p.${party_type}_id = ?
+            ), 0) AS total_payments
+          `,
+          [party_id, party_type, party_id]
+        );
+        const total_sales = Number(agg?.total_sales || 0);
+        const total_payments = Number(agg?.total_payments || 0);
+        const previous_due = Math.max(total_sales - total_payments, 0);
+        return res.json({ previous_due, total_sales, total_payments });
+      } finally {
+        await conn.end();
+      }
     } catch (err) {
-      console.error('getAllSalesWithItems error:', err);
-      return res.status(500).json({ error: 'Failed to fetch sales' });
+      console.error('getPartyPreviousDue error:', err);
+      return res.status(500).json({ error: 'Server Error' });
     }
   },
 };
 
-module.exports = SalesController;
+module.exports = SalesController

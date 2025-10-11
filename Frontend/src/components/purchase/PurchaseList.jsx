@@ -20,12 +20,10 @@ export default function PurchaseList({ reload }) {
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
-  // Fetch purchases initially and whenever `reload` changes (parent signals refresh)
   useEffect(() => {
     dispatch(fetchPurchases());
   }, [dispatch, reload]);
 
-  // close view on Escape
   useEffect(() => {
     if (!viewPurchaseId) return;
     const onKey = (e) => {
@@ -35,12 +33,14 @@ export default function PurchaseList({ reload }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [viewPurchaseId]);
 
+  // CHANGED: search me party_name include
   const filtered = useMemo(() => {
     if (!search) return purchases;
     const term = search.toLowerCase();
-    return purchases.filter((p) => [p.bill_no, p.vendor_name, p.gst_no, p.total_amount]
-      .filter(Boolean)
-      .some((v) => String(v).toLowerCase().includes(term))
+    return purchases.filter((p) =>
+      [p.bill_no, p.party_name, p.gst_no, p.total_amount]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(term))
     );
   }, [purchases, search]);
 
@@ -53,31 +53,70 @@ export default function PurchaseList({ reload }) {
   const totalPurchases = purchases.length;
   const totalAmount = purchases.reduce((s, p) => s + Number(p.total_amount || 0), 0);
 
+  // CHANGED: Vendor -> Party column; optional party_type badge
   const columns = [
-    { field: "sl_no", headerName: "Sl.No.", width: 80, sortable: false, renderCell: (params) => {
+    {
+      field: "sl_no",
+      headerName: "Sl.No.",
+      width: 80,
+      sortable: false,
+      renderCell: (params) => {
         const pageStart = (page - 1) * PAGE_SIZE;
-        const rowIndex = currentPageRows.findIndex(r => r.id === params.row.id);
+        const rowIndex = currentPageRows.findIndex((r) => r.id === params.row.id);
         return pageStart + rowIndex + 1;
-      }
+      },
     },
     {
       field: "bill_no",
       headerName: "Bill No",
       flex: 1,
       renderCell: (params) => (
-          <button
-            type="button"
-            onClick={() => setViewPurchaseId(params.row.id)}
-            className="text-blue-600 underline text-left w-full truncate"
-            title={params.value}
-          >
-            {params.value || "-"}
-          </button>
-        ),
+        <button
+          type="button"
+          onClick={() => setViewPurchaseId(params.row.id)}
+          className="text-blue-600 underline text-left w-full truncate"
+          title={params.value}
+        >
+          {params.value || "-"}
+        </button>
+      ),
     },
-    { field: "vendor_name", headerName: "Vendor", flex: 1 },
-    { field: "bill_date", headerName: "Date", width: 140, renderCell: (params) => params.value ? new Date(params.value).toLocaleDateString() : "N/A" },
-    { field: "total_amount", headerName: "Total Amount", width: 140, renderCell: (params) => fx(params.value) },
+    // NEW: Party column using party_name
+    {
+      field: "party_name",
+      headerName: "Party",
+      flex: 1,
+      renderCell: (params) => {
+        const name = params.row.party_name || params.row.vendor_name || "-";
+        const type = params.row.party_type; // 'vendor' | 'farmer' (if provided by API)
+        return (
+          <div className="flex items-center gap-2">
+            <span className="truncate">{name}</span>
+            {type ? (
+              <span
+                className={`text-[10px] px-2 py-0.5 rounded ${
+                  type === "farmer" ? "bg-emerald-100 text-emerald-700" : "bg-blue-100 text-blue-700"
+                }`}
+              >
+                {type}
+              </span>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
+      field: "bill_date",
+      headerName: "Date",
+      width: 140,
+      renderCell: (params) => (params.value ? new Date(params.value).toLocaleDateString() : "N/A"),
+    },
+    {
+      field: "total_amount",
+      headerName: "Total Amount",
+      width: 140,
+      renderCell: (params) => fx(params.value),
+    },
     {
       field: "actions",
       headerName: "Actions",
@@ -125,18 +164,7 @@ export default function PurchaseList({ reload }) {
         </div>
       </div>
 
-      {/* Search and actions */}
-        {/* <div className="flex items-center justify-between mb-4">
-          <input
-            type="text"
-            placeholder="Search by bill no, vendor, amount..."
-            className="border rounded px-3 py-2 w-full max-w-md"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-          />
-          <div className="flex-1" />
-        </div> */}
-
+      {/* Table */}
       <div className="bg-white rounded shadow overflow-x-auto mb-6">
         <DataTable
           rows={filtered}
@@ -154,13 +182,17 @@ export default function PurchaseList({ reload }) {
           className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
           disabled={page === 1}
           onClick={() => setPage((p) => Math.max(1, p - 1))}
-        >Prev</button>
+        >
+          Prev
+        </button>
         <span>Page {page} of {totalPages}</span>
         <button
           className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
           disabled={page === totalPages}
           onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-        >Next</button>
+        >
+          Next
+        </button>
       </div>
 
       {viewPurchaseId && <PurchaseDetailsPanel id={viewPurchaseId} onClose={() => setViewPurchaseId(null)} />}

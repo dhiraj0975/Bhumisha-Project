@@ -14,7 +14,7 @@ export default function SalesDetailsPanel({ id, onClose }) {
     const load = async () => {
       try {
         setLoading(true);
-        const { data } = await salesAPI.getById(id); // backend returns sale + items
+        const { data } = await salesAPI.getById(id); // backend returns sale with party fields + items
         setSale(data);
       } catch (err) {
         console.error(err);
@@ -49,7 +49,6 @@ export default function SalesDetailsPanel({ id, onClose }) {
   }, [sale]);
 
   return (
-    // Full screen modal backdrop
     <div
       className="fixed inset-0 z-50 flex items-start md:items-center justify-center p-4 md:p-8"
       aria-modal="true"
@@ -100,11 +99,29 @@ export default function SalesDetailsPanel({ id, onClose }) {
                 </div>
                 <div>
                   <div className="text-gray-500">Date</div>
-                  <div className="font-semibold">{sale.bill_date}</div>
+                  <div className="font-semibold">
+                    {sale.bill_date || (sale.created_at ? new Date(sale.created_at).toLocaleDateString() : "-")}
+                  </div>
                 </div>
+                {/* Party + badge */}
                 <div>
-                  <div className="text-gray-500">Customer</div>
-                  <div className="font-semibold">{sale.customer_name}</div>
+                  <div className="text-gray-500">Party</div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-semibold">{sale.party_name || sale.customer_name || "-"}</div>
+                    {sale.party_type ? (
+                      <span
+                        className={`text-[10px] px-2 py-0.5 rounded ${
+                          sale.party_type === "farmer"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : sale.party_type === "vendor"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-purple-100 text-purple-700"
+                        }`}
+                      >
+                        {sale.party_type}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <div>
                   <div className="text-gray-500">Payment</div>
@@ -118,6 +135,19 @@ export default function SalesDetailsPanel({ id, onClose }) {
                   <div className="text-gray-500">Status</div>
                   <div className="font-semibold">{sale.status}</div>
                 </div>
+                {/* Party GST / Balances */}
+                <div>
+                  <div className="text-gray-500">Party GST</div>
+                  <div className="font-semibold">{sale.party_gst || "-"}</div>
+                </div>
+                {/* <div>
+                  <div className="text-gray-500">Party Balance</div>
+                  <div className="font-semibold">{fx2(sale.party_balance || 0)}</div>
+                </div> */}
+                {/* <div>
+                  <div className="text-gray-500">Min Balance</div>
+                  <div className="font-semibold">{fx2(sale.party_min_balance || 0)}</div>
+                </div> */}
                 <div className="md:col-span-3">
                   <div className="text-gray-500">Remarks</div>
                   <div className="font-semibold">{sale.remarks || "-"}</div>
@@ -180,11 +210,9 @@ export default function SalesDetailsPanel({ id, onClose }) {
         </div>
 
         {/* Print CSS */}
-   */     <style>{`
+        <style>{`
           @media print {
-            /* Hide everything */
             body * { visibility: hidden; }
-            /* Show only this panel */
             .sale-details-print, .sale-details-print * { visibility: visible; }
             .sale-details-print { position: absolute; left: 0; top: 0; width: 100%; background: #fff; }
             .no-print { display: none !important; }
