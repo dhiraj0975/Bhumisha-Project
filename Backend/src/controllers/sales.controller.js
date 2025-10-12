@@ -1,10 +1,14 @@
 // controllers/sales.controller.js
 const Sales = require('../models/sales.model');
 const SaleItems = require('../models/saleItems.model');
+const { normalize } = require('../services/companyCode');
 
 const SalesController = {
   async createSale(req, res) {
     try {
+      // require company code header/body
+  const code = normalize(req.headers["x-company-code"] || req.body.company_code || "");
+  if (!code) return res.status(400).json({ error: "x-company-code required" });
       const {
         party_type,          // 'customer' | 'vendor' | 'farmer'
         customer_id, vendor_id, farmer_id,
@@ -38,7 +42,7 @@ const SalesController = {
         status, payment_status, payment_method, remarks,
         items,
         cash_received: Number(cash_received || 0),
-      });
+      }, code);
 
       return res.status(201).json({
         message: 'Sale created successfully',
@@ -60,7 +64,9 @@ const SalesController = {
 
   async getSales(_req, res) {
     try {
-      const sales = await Sales.getAll();
+  const code = normalize(_req.headers["x-company-code"] || _req.query.company_code || "");
+  if (!code) return res.status(400).json({ error: "x-company-code required" });
+      const sales = await Sales.getAll(code);
       return res.json(sales);
     } catch (err) {
       console.error('getSales error:', err);
@@ -72,7 +78,9 @@ const SalesController = {
     try {
       const sale_id = Number(req.params.id);
       if (!sale_id) return res.status(400).json({ error: 'Invalid sale ID' });
-      const sale = await Sales.getById(sale_id);
+  const code = normalize(req.headers["x-company-code"] || req.query.company_code || "");
+  if (!code) return res.status(400).json({ error: "x-company-code required" });
+      const sale = await Sales.getById(sale_id, code);
       if (!sale) return res.status(404).json({ error: 'Sale not found' });
       // items already embedded by model.getById
       return res.json(sale);
@@ -86,6 +94,8 @@ const SalesController = {
     try {
       const sale_id = Number(req.params.id);
       if (!sale_id) return res.status(400).json({ error: 'Invalid sale ID' });
+  const code = normalize(req.headers["x-company-code"] || req.body.company_code || "");
+  if (!code) return res.status(400).json({ error: "x-company-code required" });
 
       const {
         party_type, customer_id, vendor_id, farmer_id,
@@ -108,7 +118,7 @@ const SalesController = {
         party_type, customer_id, vendor_id, farmer_id,
         bill_no, bill_date, status, payment_status, payment_method, remarks, items,
          cash_received: Number(cash_received || 0), // NEW
-      });
+      }, code);
 
       return res.json({
         message: 'Sale updated successfully',
@@ -126,7 +136,9 @@ const SalesController = {
     try {
       const sale_id = Number(req.params.id);
       if (!sale_id) return res.status(400).json({ error: 'Invalid sale ID' });
-      await Sales.delete(sale_id);
+  const code = normalize(req.headers["x-company-code"] || req.query.company_code || "");
+  if (!code) return res.status(400).json({ error: "x-company-code required" });
+  await Sales.delete(sale_id, code);
       return res.json({ message: 'Sale deleted successfully' });
     } catch (err) {
       console.error('deleteSale error:', err);
@@ -136,7 +148,9 @@ const SalesController = {
 
   async getNewBillNo(_req, res) {
     try {
-      const bill_no = await Sales.getNewBillNo();
+      const code = normalize(_req.headers["x-company-code"] || _req.query.company_code || "");
+      if (!code) return res.status(400).json({ error: "x-company-code required" });
+      const bill_no = await Sales.getNewBillNo(code);
       return res.json({ bill_no });
     } catch (err) {
       console.error('getNewBillNo error:', err);
@@ -156,12 +170,16 @@ const SalesController = {
 
       const conn = await require('../models/sales.model').getConnection();
       try {
+  const code = normalize(req.headers["x-company-code"] || req.query.company_code || "");
+  if (!code) return res.status(400).json({ error: "x-company-code required" });
+  const { tn } = require('../services/tableName');
+        const salesTable = tn(code, 'sales');
         const [[agg]] = await conn.query(
           `
           SELECT
             COALESCE((
               SELECT SUM(s.total_amount)
-              FROM sales s
+              FROM \`${salesTable}\` s
               WHERE s.${party_type}_id = ? AND (s.status IS NULL OR s.status <> 'Cancelled')
             ), 0) AS total_sales,
             COALESCE((

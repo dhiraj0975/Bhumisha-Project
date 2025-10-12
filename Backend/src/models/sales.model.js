@@ -1,6 +1,9 @@
 // models/sales.model.js
 const mysql = require('mysql2/promise');
 
+const { tn } = require('../services/tableName');
+const { createCompanyTables } = require('../services/companyTables');
+
 const Sales = {
   getConnection: async () => {
     const conn = await mysql.createConnection({
@@ -15,10 +18,13 @@ const Sales = {
   },
 
   // Generate next bill number like BILL-001, BILL-002 ...
-  getNewBillNo: async () => {
+  getNewBillNo: async (code) => {
+    // ensure per-company tables exist (idempotent)
+    await createCompanyTables(code);
     const conn = await Sales.getConnection();
     try {
-      const [rows] = await conn.execute('SELECT bill_no FROM sales ORDER BY id DESC LIMIT 1');
+      const salesTable = tn(code, 'sales');
+      const [rows] = await conn.execute(`SELECT bill_no FROM \`${salesTable}\` ORDER BY id DESC LIMIT 1`);
       let lastNo = 0;
       if (rows.length && rows[0].bill_no) {
         const parts = String(rows[0].bill_no).split('-');
@@ -31,7 +37,7 @@ const Sales = {
   },
 
   // Create sale (party-agnostic)
-  create: async (payload) => {
+  create: async (payload, code) => {
     const {
       party_type,              // 'customer' | 'vendor' | 'farmer'
       customer_id = null,
@@ -62,10 +68,14 @@ const Sales = {
     try {
       await conn.beginTransaction();
 
-      // Bill no
+      // company table names
+      const salesTable = tn(code, 'sales');
+      const saleItemsTable = tn(code, 'sale_items');
+
+      // Bill no (from company table)
       let finalBillNo = bill_no;
       if (!finalBillNo) {
-        const [last] = await conn.execute('SELECT bill_no FROM sales ORDER BY id DESC LIMIT 1');
+        const [last] = await conn.execute(`SELECT bill_no FROM \`${salesTable}\` ORDER BY id DESC LIMIT 1`);
         let lastNo = 0;
         if (last.length && last[0].bill_no) {
           const parts = String(last[0].bill_no).split('-');
@@ -74,9 +84,9 @@ const Sales = {
         finalBillNo = `BILL-${String(lastNo + 1).padStart(3, '0')}`;
       }
 
-      // Insert header (only one FK set + party_type)
+      // Insert header (company specific table)
       const [saleRes] = await conn.execute(
-        `INSERT INTO sales
+        `INSERT INTO \`${salesTable}\`
          (customer_id, vendor_id, farmer_id, party_type, bill_no, bill_date, total_taxable, total_gst, total_amount, payment_status, payment_method, remarks, status)
          VALUES (?, ?, ?, ?, ?, ?, 0.00, 0.00, 0.00, ?, ?, ?, ?)`,
         [
@@ -128,8 +138,9 @@ const Sales = {
         const net_total = Number(taxable_amount + gst_amount);
         const unit = item.unit || 'PCS';
 
+        // insert into per-company sale_items table
         await conn.execute(
-          `INSERT INTO sale_items
+          `INSERT INTO \`${saleItemsTable}\`
            (sale_id, product_id, rate, qty, discount_rate, discount_amount, taxable_amount, gst_percent, gst_amount, net_total, unit, status)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
           [sale_id, item.product_id, rate, qty, discount_rate, discount_amount, taxable_amount, gst_percent, gst_amount, net_total, unit]
@@ -145,22 +156,25 @@ const Sales = {
 
       // Update totals on sale
       await conn.execute(
-        'UPDATE sales SET total_taxable=?, total_gst=?, total_amount=? WHERE id=?',
+        `UPDATE \`${tn(code,'sales')}\` SET total_taxable=?, total_gst=?, total_amount=? WHERE id=?`,
         [total_taxable.toFixed(2), total_gst.toFixed(2), total_amount.toFixed(2), sale_id]
       );
 
-      // Previous due (party-aware): total_sales - total_payments
+      // Previous due (party-aware): total_sales - total_payments (company-specific payments table)
+      const paymentsTable = tn(code, 'sale_payments');
+  // Ensure per-company payments table exists (idempotent)
+  await conn.execute(`CREATE TABLE IF NOT EXISTS \`${paymentsTable}\` LIKE \`tpl_sale_payments\``);
       const [[agg]] = await conn.query(
         `
         SELECT
           COALESCE((
             SELECT SUM(s.total_amount)
-            FROM sales s
+            FROM \`${salesTable}\` s
             WHERE s.${party_type}_id = ? AND (s.status IS NULL OR s.status <> 'Cancelled')
           ), 0) AS total_sales,
           COALESCE((
             SELECT SUM(p.amount)
-            FROM sale_payments p
+            FROM \`${paymentsTable}\` p
             WHERE p.party_type = ? AND p.${party_type}_id = ?
           ), 0) AS total_payments
         `,
@@ -178,7 +192,7 @@ const Sales = {
       const cash = Number(cash_received || 0);
       if (cash > 0) {
         await conn.execute(
-          `INSERT INTO sale_payments (sale_id, party_type, customer_id, vendor_id, farmer_id, payment_date, amount, method, remarks)
+          `INSERT INTO \`${paymentsTable}\` (sale_id, party_type, customer_id, vendor_id, farmer_id, payment_date, amount, method, remarks)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             sale_id,
@@ -203,9 +217,9 @@ const Sales = {
         final_payment_status = 'Partial';
       }
 
-      // Persist payment_status
+      // Persist payment_status (company table)
       await conn.execute(
-        `UPDATE sales SET payment_status=? WHERE id=?`,
+        `UPDATE \`${salesTable}\` SET payment_status=? WHERE id=?`,
         [final_payment_status, sale_id]
       );
 
@@ -230,9 +244,12 @@ const Sales = {
   },
 
   // List party-aware
-  getAll: async () => {
+  getAll: async (code) => {
+    // ensure per-company tables exist (idempotent)
+    await createCompanyTables(code);
     const conn = await Sales.getConnection();
     try {
+      const salesTable = tn(code, 'sales');
       const [rows] = await conn.execute(
         `SELECT
            s.*,
@@ -242,7 +259,7 @@ const Sales = {
            COALESCE(c.GST_No, v.gst_no, NULL)                                       AS party_gst,
            COALESCE(c.balance, v.balance, f.balance)                                AS party_balance,
            COALESCE(c.min_balance, v.min_balance, f.min_balance)                    AS party_min_balance
-         FROM sales s
+         FROM \`${salesTable}\` s
          LEFT JOIN customers c ON s.customer_id = c.id
          LEFT JOIN vendors   v ON s.vendor_id   = v.id
          LEFT JOIN farmers   f ON s.farmer_id   = f.id
@@ -255,9 +272,13 @@ const Sales = {
   },
 
   // Single sale with party fields
-  getById: async (id) => {
+  getById: async (id, code) => {
+    // ensure per-company tables exist (idempotent)
+    await createCompanyTables(code);
     const conn = await Sales.getConnection();
     try {
+      const salesTable = tn(code, 'sales');
+      const saleItemsTable = tn(code, 'sale_items');
       const [saleRows] = await conn.execute(
         `SELECT
            s.*,
@@ -267,7 +288,7 @@ const Sales = {
            COALESCE(c.GST_No, v.gst_no, NULL)                                       AS party_gst,
            COALESCE(c.balance, v.balance, f.balance)                                AS party_balance,
            COALESCE(c.min_balance, v.min_balance, f.min_balance)                    AS party_min_balance
-         FROM sales s
+         FROM \`${salesTable}\` s
          LEFT JOIN customers c ON s.customer_id = c.id
          LEFT JOIN vendors   v ON s.vendor_id   = v.id
          LEFT JOIN farmers   f ON s.farmer_id   = f.id
@@ -278,7 +299,7 @@ const Sales = {
 
       const [items] = await conn.execute(
         `SELECT si.*, p.product_name AS item_name, p.hsn_code
-         FROM sale_items si
+         FROM \`${saleItemsTable}\` si
          JOIN products p ON si.product_id = p.id
          WHERE si.sale_id=?
          ORDER BY si.id ASC`,
@@ -292,13 +313,17 @@ const Sales = {
   },
 
   // Update party-aware (optional payment on update)
-  update: async (id, data) => {
+  update: async (id, data, code) => {
+    // ensure per-company tables exist (idempotent)
+    await createCompanyTables(code);
     const conn = await Sales.getConnection();
     try {
       await conn.beginTransaction();
 
-      // Load existing
-      const [existRows] = await conn.execute('SELECT * FROM sales WHERE id=?', [id]);
+    // Load existing
+  const salesTable = tn(code, 'sales');
+  const saleItemsTable = tn(code, 'sale_items');
+  const [existRows] = await conn.execute(`SELECT * FROM \`${salesTable}\` WHERE id=?`, [id]);
       if (!existRows.length) throw new Error('sale not found');
       const existing = existRows[0];
 
@@ -318,9 +343,9 @@ const Sales = {
         party_type === 'farmer'   ? farmer_id   : null;
       if (!chosenId) throw new Error(`${party_type}_id is required`);
 
-      // Update header party FKs + basics
+      // Update header party FKs + basics (company table)
       await conn.execute(
-        `UPDATE sales
+        `UPDATE \`${salesTable}\`
            SET customer_id=?, vendor_id=?, farmer_id=?, party_type=?, bill_no=?, bill_date=?, payment_status=?, payment_method=?, remarks=?, status=?
          WHERE id=?`,
         [
@@ -343,9 +368,9 @@ const Sales = {
       let total_amount = Number(existing.total_amount || 0);
 
       if (Array.isArray(items)) {
-        // Restore stock from old items
+        // Restore stock from old items (company-specific table)
         const [oldItems] = await conn.execute(
-          `SELECT product_id, qty FROM sale_items WHERE sale_id=?`,
+          `SELECT product_id, qty, id FROM \`${saleItemsTable}\` WHERE sale_id=?`,
           [id]
         );
         for (const it of oldItems) {
@@ -360,8 +385,8 @@ const Sales = {
           }
         }
 
-        // Delete old items
-        await conn.execute('DELETE FROM sale_items WHERE sale_id=?', [id]);
+  // Delete old items
+  await conn.execute(`DELETE FROM \`${saleItemsTable}\` WHERE sale_id=?`, [id]);
 
         // Insert new items + decrement stock + recalc totals
         total_taxable = 0; total_gst = 0; total_amount = 0;
@@ -396,10 +421,10 @@ const Sales = {
           const unit = item.unit || 'PCS';
 
           await conn.execute(
-            `INSERT INTO sale_items
+            `INSERT INTO \`${saleItemsTable}\`
              (sale_id, product_id, rate, qty, discount_rate, discount_amount, taxable_amount, gst_percent, gst_amount, net_total, unit, status)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Active')`,
-            [id, item.product_id, rate, qty, discount_rate, discount_amount, taxable_amount, gst_percent, gst_amount, net_total, unit]
+          [id, item.product_id, rate, qty, discount_rate, discount_amount, taxable_amount, gst_percent, gst_amount, net_total, unit]
           );
 
           const newSize = currentSizeNum - qty;
@@ -411,7 +436,7 @@ const Sales = {
         }
 
         await conn.execute(
-          'UPDATE sales SET total_taxable=?, total_gst=?, total_amount=? WHERE id=?',
+          `UPDATE \`${salesTable}\` SET total_taxable=?, total_gst=?, total_amount=? WHERE id=?`,
           [total_taxable.toFixed(2), total_gst.toFixed(2), total_amount.toFixed(2), id]
         );
       }
@@ -419,8 +444,10 @@ const Sales = {
       // Optional payment on update
       const cash = Number(cash_received || 0);
       if (cash > 0) {
+        const paymentsTable = tn(code, 'sale_payments');
+        await conn.execute(`CREATE TABLE IF NOT EXISTS \`${paymentsTable}\` LIKE \`tpl_sale_payments\``);
         await conn.execute(
-          `INSERT INTO sale_payments (sale_id, party_type, customer_id, vendor_id, farmer_id, payment_date, amount, method, remarks)
+          `INSERT INTO \`${paymentsTable}\` (sale_id, party_type, customer_id, vendor_id, farmer_id, payment_date, amount, method, remarks)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             id,
@@ -436,18 +463,19 @@ const Sales = {
         );
       }
 
-      // Recompute aggregates to derive final status
+      // Recompute aggregates to derive final status (use company sales table)
+      const paymentsTable = tn(code, 'sale_payments');
       const [[agg]] = await conn.query(
         `
         SELECT
           COALESCE((
             SELECT SUM(s.total_amount)
-            FROM sales s
+            FROM \`${salesTable}\` s
             WHERE s.${party_type}_id = ? AND (s.status IS NULL OR s.status <> 'Cancelled')
           ), 0) AS total_sales,
           COALESCE((
             SELECT SUM(p.amount)
-            FROM sale_payments p
+            FROM \`${paymentsTable}\` p
             WHERE p.party_type = ? AND p.${party_type}_id = ?
           ), 0) AS total_payments
         `,
@@ -469,7 +497,7 @@ const Sales = {
       }
 
       await conn.execute(
-        `UPDATE sales SET payment_status=? WHERE id=?`,
+        `UPDATE \`${salesTable}\` SET payment_status=? WHERE id=?`,
         [final_payment_status, id]
       );
 
@@ -484,12 +512,14 @@ const Sales = {
   },
 
   // Delete sale (no stock restore by choice)
-  delete: async (id) => {
+  delete: async (id, code) => {
     const conn = await Sales.getConnection();
     try {
       await conn.beginTransaction();
-      await conn.execute('DELETE FROM sale_items WHERE sale_id=?', [id]);
-      const [res] = await conn.execute('DELETE FROM sales WHERE id=?', [id]);
+      const salesTable = tn(code, 'sales');
+      const saleItemsTable = tn(code, 'sale_items');
+      await conn.execute(`DELETE FROM \`${saleItemsTable}\` WHERE sale_id=?`, [id]);
+      const [res] = await conn.execute(`DELETE FROM \`${salesTable}\` WHERE id=?`, [id]);
       await conn.commit();
       return res;
     } catch (e) {
@@ -500,13 +530,15 @@ const Sales = {
     }
   },
 
-  // Party-specific fetch (legacy helper)
-  getByCustomerId: async (customer_id) => {
+  // Party-specific fetch (legacy helper) - company-aware
+  getByCustomerId: async (customer_id, code = null) => {
     const conn = await Sales.getConnection();
     try {
+      const salesTable = code ? tn(code, 'sales') : 'sales';
+      const saleItemsTable = code ? tn(code, 'sale_items') : 'sale_items';
       const [rows] = await conn.execute(
         `SELECT s.*, c.name AS party_name
-         FROM sales s
+         FROM \`${salesTable}\` s
          LEFT JOIN customers c ON s.customer_id = c.id
          WHERE s.customer_id=?
          ORDER BY s.id DESC`,
@@ -516,7 +548,7 @@ const Sales = {
       for (const sale of rows) {
         const [items] = await conn.execute(
           `SELECT si.*, p.product_name AS item_name, p.hsn_code
-           FROM sale_items si
+           FROM \`${saleItemsTable}\` si
            JOIN products p ON si.product_id = p.id
            WHERE si.sale_id=?`,
           [sale.id]

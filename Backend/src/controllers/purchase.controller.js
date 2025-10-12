@@ -1,309 +1,19 @@
-
-// // controllers/purchase.controller.js
-// const db = require("../config/db");
-// const PurchaseItem = require("../models/purchaseItem.model2");
-
-// const purchaseController = {
-//   // Create Purchase with stock increment (size += qty)
-//   create: async (req, res) => {
-//     const connection = db.promise();
-//     try {
-//       const { vendor_id, gst_no, bill_no, bill_date, items, status } = req.body;
-//       if (!Array.isArray(items) || items.length === 0) {
-//         return res.status(400).json({ error: "Items must be a non-empty array" });
-//       }
-
-//       await connection.query("START TRANSACTION");
-
-//       const formattedDate = bill_date ? new Date(bill_date).toISOString().split("T")[0] : null;
-//       const total_amount = items.reduce((sum, i) => sum + Number(i.rate || 0) * Number(i.size || 0), 0);
-
-//       const [purchaseResult] = await connection.query(
-//         `INSERT INTO purchases (vendor_id, gst_no, bill_no, bill_date, total_amount, status)
-//          VALUES (?, ?, ?, ?, ?, ?)`,
-//         [vendor_id, gst_no || null, bill_no, formattedDate, total_amount, status || "Active"]
-//       );
-//       const purchaseId = purchaseResult.insertId;
-
-//       if (items.length > 0) {
-//         const values = items.map((i) => [
-//           purchaseId,
-//           i.product_id,
-//           Number(i.rate || 0),
-//           Number(i.size || 0),
-//           i.unit || "PCS",
-//           "Active",
-//         ]);
-
-//         await connection.query(
-//           `INSERT INTO purchase_items (purchase_id, product_id, rate, size, unit, status) VALUES ?`,
-//           [values]
-//         );
-
-//         // Increment stock with row lock
-//         for (const i of items) {
-//           const [prodRows] = await connection.query(
-//             `SELECT id, size FROM products WHERE id = ? FOR UPDATE`,
-//             [i.product_id]
-//           );
-//           if (!prodRows.length) {
-//             await connection.query("ROLLBACK");
-//             return res.status(400).json({ error: `product ${i.product_id} not found` });
-//           }
-//           const curr = Number(prodRows[0].size || 0);
-//           const inc = Number(i.size || 0);
-//           if (!Number.isFinite(inc) || inc < 0) {
-//             await connection.query("ROLLBACK");
-//             return res.status(400).json({ error: `invalid size for product ${i.product_id}` });
-//           }
-//           const newSize = curr + inc;
-//           await connection.query(`UPDATE products SET size = ? WHERE id = ?`, [String(newSize), i.product_id]);
-//         }
-//       }
-
-//       await connection.query("COMMIT");
-//       res.status(201).json({ message: "Purchase created successfully", purchase_id: purchaseId });
-//     } catch (err) {
-//       await db.promise().query("ROLLBACK");
-//       console.error("Purchase creation error:", err);
-//       res.status(400).json({ error: err.message || "Failed to create purchase" });
-//     }
-//   },
-
-//   // Update Purchase with stock sync (diff on items)
-//   update: async (req, res) => {
-//     const { id } = req.params;
-//     const { vendor_id, vendor_name, firm_name, gst_no, bill_no, bill_date, status, items } = req.body;
-
-//     if (!vendor_id && !vendor_name) return res.status(400).json({ error: "vendor_id or vendor_name is required" });
-//     if (!bill_no) return res.status(400).json({ error: "bill_no is required" });
-//     if (!bill_date) return res.status(400).json({ error: "bill_date is required" });
-
-//     const connection = db.promise();
-//     try {
-//       await connection.query("START TRANSACTION");
-
-//       // Resolve vendor id if only name present
-//       let resolvedVendorId = vendor_id;
-//       if (!resolvedVendorId) {
-//         let [vendorRows] = await connection.query(`SELECT id FROM vendors WHERE vendor_name = ?`, [vendor_name]);
-//         if (vendorRows.length > 0) {
-//           resolvedVendorId = vendorRows[0].id;
-//         } else {
-//           const [result] = await connection.query(
-//             `INSERT INTO vendors (vendor_name, firm_name, gst_no, status) VALUES (?, ?, ?, ?)`,
-//             [vendor_name, firm_name || "", gst_no || null, "active"]
-//           );
-//           resolvedVendorId = result.insertId;
-//         }
-//       }
-
-//       const formattedDate = new Date(bill_date).toISOString().split("T")[0];
-
-//       await connection.query(
-//         `UPDATE purchases SET vendor_id=?, gst_no=?, bill_no=?, bill_date=?, status=? WHERE id=?`,
-//         [resolvedVendorId, gst_no || null, bill_no, formattedDate, status || "Active", id]
-//       );
-
-//       if (Array.isArray(items)) {
-//         // Fetch existing items
-//         const [existingRows] = await connection.query(
-//           `SELECT id, product_id, size FROM purchase_items WHERE purchase_id = ?`,
-//           [id]
-//         );
-//         const existingMap = {};
-//         const existingIds = [];
-//         for (const r of existingRows) {
-//           existingMap[r.id] = r;
-//           existingIds.push(r.id);
-//         }
-
-//         const incomingIds = [];
-
-//         // Process incoming items (updates/inserts) and adjust stock with locks
-//         for (const item of items) {
-//           const itemId = item.id ? Number(item.id) : null;
-//           const newSize = Number(item.size || 0);
-//           const prodId = Number(item.product_id);
-
-//           if (itemId) {
-//             incomingIds.push(itemId);
-//             const prev = existingMap[itemId];
-//             const prevSize = prev ? Number(prev.size || 0) : 0;
-//             const sizeDelta = newSize - prevSize; // may be negative or positive
-
-//             await connection.query(
-//               `UPDATE purchase_items SET product_id=?, rate=?, size=?, unit=?, status=? WHERE id=?`,
-//               [prodId, Number(item.rate || 0), newSize, item.unit || "PCS", item.status || "Active", itemId]
-//             );
-
-//             if (sizeDelta !== 0) {
-//               const [prodRows] = await connection.query(
-//                 `SELECT id, size FROM products WHERE id=? FOR UPDATE`,
-//                 [prodId]
-//               );
-//               if (!prodRows.length) {
-//                 await connection.query("ROLLBACK");
-//                 return res.status(400).json({ error: `product ${prodId} not found` });
-//               }
-//               const curr = Number(prodRows[0].size || 0);
-//               const updated = curr + sizeDelta;
-//               if (!Number.isFinite(updated) || updated < 0) {
-//                 await connection.query("ROLLBACK");
-//                 return res.status(400).json({ error: `stock would go negative for product ${prodId}` });
-//               }
-//               await connection.query(`UPDATE products SET size=? WHERE id=?`, [String(updated), prodId]);
-//             }
-//           } else {
-//             // insert new item
-//             const [insRes] = await connection.query(
-//               `INSERT INTO purchase_items (purchase_id, product_id, rate, size, unit, status) VALUES (?, ?, ?, ?, ?, ?)`,
-//               [id, prodId, Number(item.rate || 0), newSize, item.unit || "PCS", "Active"]
-//             );
-//             // lock and increment stock
-//             const [prodRows] = await connection.query(
-//               `SELECT id, size FROM products WHERE id=? FOR UPDATE`,
-//               [prodId]
-//             );
-//             if (!prodRows.length) {
-//               await connection.query("ROLLBACK");
-//               return res.status(400).json({ error: `product ${prodId} not found` });
-//             }
-//             const curr = Number(prodRows[0].size || 0);
-//             const updated = curr + newSize;
-//             await connection.query(`UPDATE products SET size=? WHERE id=?`, [String(updated), prodId]);
-//           }
-//         }
-
-//   // Delete removed items and decrement their size from stock
-//         const toDelete = existingIds.filter((eid) => !incomingIds.includes(eid));
-//         if (toDelete.length > 0) {
-//           for (const delId of toDelete) {
-//             const r = existingMap[delId];
-//             if (r) {
-//               const [prodRows] = await connection.query(
-//                 `SELECT id, size FROM products WHERE id=? FOR UPDATE`,
-//                 [r.product_id]
-//               );
-//               if (prodRows.length) {
-//                 const curr = Number(prodRows[0].size || 0);
-//                 const updated = curr - Number(r.size || 0);
-//                 if (updated < 0) {
-//                   await connection.query("ROLLBACK");
-//                   return res.status(400).json({ error: `stock would go negative for product ${r.product_id}` });
-//                 }
-//                 await connection.query(`UPDATE products SET size=? WHERE id=?`, [String(updated), r.product_id]);
-//               }
-//               await connection.query(`DELETE FROM purchase_items WHERE id = ?`, [delId]);
-//             }
-//           }
-//         }
-//       }
-
-//         // Recalculate total_amount from incoming items and update purchases table
-//         try {
-//           const newTotal = Array.isArray(items)
-//             ? items.reduce((s, it) => s + Number(it.rate || 0) * Number(it.size || 0), 0)
-//             : null;
-//           if (newTotal !== null) {
-//             await connection.query(`UPDATE purchases SET total_amount=? WHERE id=?`, [newTotal, id]);
-//           }
-//         } catch (e) {
-//           await connection.query("ROLLBACK");
-//           console.error("Failed to update total_amount after syncing items", e);
-//           return res.status(500).json({ error: "Failed to update purchase total" });
-//         }
-
-//       await connection.query("COMMIT");
-//       res.json({ message: "Purchase updated successfully" });
-//     } catch (err) {
-//       await connection.query("ROLLBACK");
-//       console.error("Purchase update error:", err);
-//       res.status(400).json({ error: err.message || "Failed to update purchase" });
-//     }
-//   },
-
-//   // Get all purchases
-//   getAll: async (req, res) => {
-//     try {
-//       const connection = db.promise();
-//       const [purchases] = await connection.query(`
-//         SELECT 
-//           p.id, p.bill_no, p.bill_date, p.total_amount, p.status,
-//           v.vendor_name, v.firm_name
-//         FROM purchases p
-//         JOIN vendors v ON p.vendor_id = v.id
-//         ORDER BY p.id DESC
-//       `);
-
-//       if (purchases.length === 0) return res.json([]);
-
-//       const purchaseIds = purchases.map((p) => p.id);
-//       const [items] = await connection.query(
-//         `
-//         SELECT pi.*, pr.product_name
-//         FROM purchase_items pi
-//         JOIN products pr ON pi.product_id = pr.id
-//         WHERE pi.purchase_id IN (?)
-//       `,
-//         [purchaseIds]
-//       );
-
-//       const purchasesWithItems = purchases.map((p) => {
-//         p.items = items.filter((i) => i.purchase_id === p.id);
-//         return p;
-//       });
-
-//       res.json(purchasesWithItems);
-//     } catch (err) {
-//       console.error("GetAll purchases error:", err);
-//       res.status(500).json({ error: err.message });
-//     }
-//   },
-
-//   // Get purchase by ID
-//   getById: async (req, res) => {
-//     try {
-//       const { id } = req.params;
-//       const connection = db.promise();
-
-//       const [purchaseRows] = await connection.query(
-//         `
-//         SELECT p.*, v.vendor_name, v.firm_name
-//         FROM purchases p
-//         JOIN vendors v ON p.vendor_id = v.id
-//         WHERE p.id = ?
-//       `,
-//         [id]
-//       );
-
-//       if (purchaseRows.length === 0) return res.status(404).json({ message: "Purchase not found" });
-
-//       const purchase = purchaseRows[0];
-//       const items = await PurchaseItem.findByPurchaseId(id);
-//       purchase.items = items;
-
-//       res.json(purchase);
-//     } catch (err) {
-//       console.error("GetById purchase error:", err);
-//       res.status(500).json({ error: err.message });
-//     }
-//   },
-// };
-
-// module.exports = purchaseController;
-
-
-
-// controllers/purchase.controller.js
 const db = require("../config/db");
 const PurchaseItem = require("../models/purchaseItem.model2");
+const { tn } = require("../services/tableName"); // ADD: dynamic table helper
+const { normalize } = require('../services/companyCode');
 
 const purchaseController = {
-  // Create Purchase (supports farmer)
+  // Create Purchase (supports farmer) — per-company tables
   create: async (req, res) => {
     const connection = db.promise();
     try {
+      // ADD: company code resolve
+  const code = normalize(req.headers["x-company-code"] || req.body.company_code || "");
+  if (!code) return res.status(400).json({ error: "x-company-code required" });
+      const purchasesTable = tn(code, "purchases");
+      const itemsTable = tn(code, "purchase_items");
+
       const { party_type, vendor_id, farmer_id, vendor_name, firm_name, gst_no, bill_no, bill_date, items, status } = req.body;
       if (!Array.isArray(items) || items.length === 0) {
         return res.status(400).json({ error: "Items must be a non-empty array" });
@@ -363,8 +73,9 @@ const purchaseController = {
         }
       }
 
+      // CHANGE: purchases -> dynamic purchasesTable
       const [purchaseResult] = await connection.query(
-        `INSERT INTO purchases (vendor_id, farmer_id, party_type, gst_no, bill_no, bill_date, total_amount, status)
+        `INSERT INTO \`${purchasesTable}\` (vendor_id, farmer_id, party_type, gst_no, bill_no, bill_date, total_amount, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           resolvedVendorId,
@@ -389,24 +100,30 @@ const purchaseController = {
           "Active",
         ]);
 
+        // CHANGE: purchase_items -> dynamic itemsTable
         await connection.query(
-          `INSERT INTO purchase_items (purchase_id, product_id, rate, size, unit, status) VALUES ?`,
+          `INSERT INTO \`${itemsTable}\` (purchase_id, product_id, rate, size, unit, status) VALUES ?`,
           [values]
         );
 
+        // Increment stock with row lock — stays on global products
         for (const i of items) {
-          const prodId = Number(i.product_id);
-          const inc = Number(i.size || 0);
           const [prodRows] = await connection.query(
             `SELECT id, size FROM products WHERE id = ? FOR UPDATE`,
-            [prodId]
+            [i.product_id]
           );
           if (!prodRows.length) {
             await connection.query("ROLLBACK");
-            return res.status(400).json({ error: `product ${prodId} not found` });
+            return res.status(400).json({ error: `product ${i.product_id} not found` });
           }
-          const newSize = Number(prodRows[0].size || 0) + inc;
-          await connection.query(`UPDATE products SET size=? WHERE id=?`, [String(newSize), prodId]);
+          const curr = Number(prodRows[0].size || 0);
+          const inc = Number(i.size || 0);
+          if (!Number.isFinite(inc) || inc < 0) {
+            await connection.query("ROLLBACK");
+            return res.status(400).json({ error: `invalid size for product ${i.product_id}` });
+          }
+          const newSize = curr + inc;
+          await connection.query(`UPDATE products SET size = ? WHERE id = ?`, [String(newSize), i.product_id]);
         }
       }
 
@@ -419,7 +136,7 @@ const purchaseController = {
     }
   },
 
-  // Update Purchase (supports farmer)
+  // Update Purchase with stock sync (diff on items) — per-company tables
   update: async (req, res) => {
     const { id } = req.params;
     const { party_type, vendor_id, farmer_id, vendor_name, farmer_name, firm_name, gst_no, bill_no, bill_date, status, items } = req.body;
@@ -432,6 +149,12 @@ const purchaseController = {
 
     const connection = db.promise();
     try {
+      // ADD: company code for dynamic tables
+  const code = normalize(req.headers["x-company-code"] || req.body.company_code || "");
+  if (!code) return res.status(400).json({ error: "x-company-code required" });
+      const purchasesTable = tn(code, "purchases");
+      const itemsTable = tn(code, "purchase_items");
+
       await connection.query("START TRANSACTION");
 
       let resolvedVendorId = null;
@@ -475,8 +198,9 @@ const purchaseController = {
 
       const formattedDate = new Date(bill_date).toISOString().split("T")[0];
 
+      // CHANGE: purchases -> dynamic
       await connection.query(
-        `UPDATE purchases 
+        `UPDATE \`${purchasesTable}\`
            SET vendor_id=?, farmer_id=?, party_type=?, gst_no=?, bill_no=?, bill_date=?, status=?
          WHERE id=?`,
         [
@@ -492,8 +216,9 @@ const purchaseController = {
       );
 
       if (Array.isArray(items)) {
+        // CHANGE: items table -> dynamic
         const [existingRows] = await connection.query(
-          `SELECT id, product_id, size FROM purchase_items WHERE purchase_id = ?`,
+          `SELECT id, product_id, size FROM \`${itemsTable}\` WHERE purchase_id = ?`,
           [id]
         );
         const existingMap = {};
@@ -505,6 +230,7 @@ const purchaseController = {
 
         const incomingIds = [];
 
+        // Process incoming items (updates/inserts) and adjust stock with locks
         for (const item of items) {
           const itemId = item.id ? Number(item.id) : null;
           const newSize = Number(item.size || 0);
@@ -514,10 +240,10 @@ const purchaseController = {
             incomingIds.push(itemId);
             const prev = existingMap[itemId];
             const prevSize = prev ? Number(prev.size || 0) : 0;
-            const sizeDelta = newSize - prevSize;
+            const sizeDelta = newSize - prevSize; // may be negative or positive
 
             await connection.query(
-              `UPDATE purchase_items SET product_id=?, rate=?, size=?, unit=?, status=? WHERE id=?`,
+              `UPDATE \`${itemsTable}\` SET product_id=?, rate=?, size=?, unit=?, status=? WHERE id=?`,
               [prodId, Number(item.rate || 0), newSize, item.unit || "PCS", item.status || "Active", itemId]
             );
 
@@ -539,10 +265,12 @@ const purchaseController = {
               await connection.query(`UPDATE products SET size=? WHERE id=?`, [String(updated), prodId]);
             }
           } else {
+            // insert new item
             await connection.query(
-              `INSERT INTO purchase_items (purchase_id, product_id, rate, size, unit, status) VALUES (?, ?, ?, ?, ?, ?)`,
+              `INSERT INTO \`${itemsTable}\` (purchase_id, product_id, rate, size, unit, status) VALUES (?, ?, ?, ?, ?, ?)`,
               [id, prodId, Number(item.rate || 0), newSize, item.unit || "PCS", "Active"]
             );
+            // lock and increment stock
             const [prodRows] = await connection.query(
               `SELECT id, size FROM products WHERE id=? FOR UPDATE`,
               [prodId]
@@ -557,6 +285,7 @@ const purchaseController = {
           }
         }
 
+        // Delete removed items and decrement their size from stock
         const toDelete = existingIds.filter((eid) => !incomingIds.includes(eid));
         if (toDelete.length > 0) {
           for (const delId of toDelete) {
@@ -575,18 +304,24 @@ const purchaseController = {
                 }
                 await connection.query(`UPDATE products SET size=? WHERE id=?`, [String(updated), r.product_id]);
               }
-              await connection.query(`DELETE FROM purchase_items WHERE id = ?`, [delId]);
+              await connection.query(`DELETE FROM \`${itemsTable}\` WHERE id = ?`, [delId]);
             }
           }
         }
       }
 
-      // recompute total
-      const newTotal = Array.isArray(items)
-        ? items.reduce((s, it) => s + Number(it.rate || 0) * Number(it.size || 0), 0)
-        : null;
-      if (newTotal !== null) {
-        await connection.query(`UPDATE purchases SET total_amount=? WHERE id=?`, [newTotal, id]);
+      // Recalculate total_amount from incoming items and update purchases table
+      try {
+        const newTotal = Array.isArray(items)
+          ? items.reduce((s, it) => s + Number(it.rate || 0) * Number(it.size || 0), 0)
+          : null;
+        if (newTotal !== null) {
+          await connection.query(`UPDATE \`${purchasesTable}\` SET total_amount=? WHERE id=?`, [newTotal, id]);
+        }
+      } catch (e) {
+        await connection.query("ROLLBACK");
+        console.error("Failed to update total_amount after syncing items", e);
+        return res.status(500).json({ error: "Failed to update purchase total" });
       }
 
       await connection.query("COMMIT");
@@ -598,15 +333,20 @@ const purchaseController = {
     }
   },
 
-  // Get all purchases (show vendor or farmer name)
-  getAll: async (_req, res) => {
+  // Get all purchases — per-company
+  getAll: async (req, res) => {
     try {
       const connection = db.promise();
+      const code = String(req.headers["x-company-code"] || req.query.company_code || "").toLowerCase();
+      if (!code) return res.status(400).json({ error: "x-company-code required" });
+      const purchasesTable = tn(code, "purchases");
+      const itemsTable = tn(code, "purchase_items");
+
       const [purchases] = await connection.query(`
         SELECT 
           p.id, p.bill_no, p.bill_date, p.total_amount, p.status, p.party_type,
           v.vendor_name, v.firm_name, f.name AS farmer_name
-        FROM purchases p
+        FROM \`${purchasesTable}\` p
         LEFT JOIN vendors v ON p.vendor_id = v.id
         LEFT JOIN farmers f ON p.farmer_id = f.id
         ORDER BY p.id DESC
@@ -618,39 +358,40 @@ const purchaseController = {
       const [items] = await connection.query(
         `
         SELECT pi.*, pr.product_name
-        FROM purchase_items pi
+        FROM \`${itemsTable}\` pi
         JOIN products pr ON pi.product_id = pr.id
         WHERE pi.purchase_id IN (?)
       `,
         [purchaseIds]
       );
 
-      const mapped = purchases.map((p) => {
+      const purchasesWithItems = purchases.map((p) => {
         const party_name = p.party_type === 'vendor' ? p.vendor_name : p.farmer_name;
-        return {
-          ...p,
-          party_name,
-          items: items.filter(i => i.purchase_id === p.id),
-        };
+        return { ...p, party_name, items: items.filter((i) => i.purchase_id === p.id) };
       });
 
-      res.json(mapped);
+      res.json(purchasesWithItems);
     } catch (err) {
       console.error("GetAll purchases error:", err);
       res.status(500).json({ error: err.message });
     }
   },
 
-  // Get one by id
+  // Get purchase by ID — per-company
   getById: async (req, res) => {
     try {
       const { id } = req.params;
       const connection = db.promise();
 
-      const [rows] = await connection.query(
+      const code = String(req.headers["x-company-code"] || req.query.company_code || "").toLowerCase();
+      if (!code) return res.status(400).json({ error: "x-company-code required" });
+      const purchasesTable = tn(code, "purchases");
+      const itemsTable = tn(code, "purchase_items");
+
+      const [purchaseRows] = await connection.query(
         `
         SELECT p.*, v.vendor_name, v.firm_name, f.name AS farmer_name
-        FROM purchases p
+        FROM \`${purchasesTable}\` p
         LEFT JOIN vendors v ON p.vendor_id = v.id
         LEFT JOIN farmers f ON p.farmer_id = f.id
         WHERE p.id = ?
@@ -658,12 +399,19 @@ const purchaseController = {
         [id]
       );
 
-      if (!rows.length) return res.status(404).json({ message: "Purchase not found" });
+      if (purchaseRows.length === 0) return res.status(404).json({ message: "Purchase not found" });
 
-      const purchase = rows[0];
-      const items = await PurchaseItem.findByPurchaseId(id);
+      // Inline query to ensure company-specific table is used
+      const [items] = await connection.query(
+        `SELECT pi.*, pr.product_name
+         FROM \`${itemsTable}\` pi
+         JOIN products pr ON pi.product_id = pr.id
+         WHERE pi.purchase_id = ?`,
+        [id]
+      );
+
+      const purchase = purchaseRows[0];
       const party_name = purchase.party_type === 'vendor' ? purchase.vendor_name : purchase.farmer_name;
-
       res.json({ ...purchase, party_name, items });
     } catch (err) {
       console.error("GetById purchase error:", err);

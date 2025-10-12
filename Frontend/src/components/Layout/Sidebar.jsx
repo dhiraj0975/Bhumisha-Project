@@ -167,6 +167,11 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
           {!collapsed && "Purchases"}
         </Link>
 
+        <Link to="/company/new" className={linkClass("/company/new")}>
+          <Sticker label="Company" symbol="🏢" decorative={collapsed ? false : true} />
+          {!collapsed && "Company"}
+        </Link>
+
         <Link to="/sales" className={linkClass("/sales")}>
           <Sticker label="Sales" symbol="💹" decorative={collapsed ? false : true} />
           {!collapsed && "Sales"}

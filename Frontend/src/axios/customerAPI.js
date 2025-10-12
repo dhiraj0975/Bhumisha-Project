@@ -1,17 +1,11 @@
 // src/axios/customerAPI.js
-import axios from "axios";
+import { api } from "./axios";
 
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL, // e.g., http://localhost:4000/api
-  withCredentials: true,
-});
-
-// Optional: unify error messages
+// Optional: unify error messages by wrapping responses (we keep using api instance)
 api.interceptors.response.use(
   (r) => r,
   (err) => {
     const msg = err?.response?.data?.message || err.message || "Request failed";
-    // console.warn("API Error:", msg);
     return Promise.reject({ ...err, message: msg });
   }
 );
@@ -20,7 +14,7 @@ const customersAPI = {
   // CRUD
   getAll: () => api.get("/customers"),
   getById: (id) => api.get(`/customers/${id}`),
-  create: (data) => api.post("/customers", data),            // expects { name, email?, phone?, address?, status?, gst_no?, balance?, min_balance? }
+  create: (data) => api.post("/customers", data),
   update: (id, data) => api.put(`/customers/${id}`, data),
   remove: (id) => api.delete(`/customers/${id}`),
 
@@ -29,14 +23,12 @@ const customersAPI = {
   getBalance: (id) => api.get(`/customers/${id}/balance`),
 
   // Statement + Summary
-  getStatement: (id, params) => api.get(`/customers/${id}/statement`, { params }), // { from, to, page, limit, sort }
-  getSummary: (id, params) => api.get(`/customers/${id}/summary`, { params }),     // { as_of }
+  getStatement: (id, params) => api.get(`/customers/${id}/statement`, { params }),
+  getSummary: (id, params) => api.get(`/customers/${id}/summary`, { params }),
 
   // Exports
-  exportStatementCSV: (id, params) =>
-    api.get(`/customers/${id}/statement.csv`, { params, responseType: "blob" }),
-  exportStatementPDF: (id, params) =>
-    api.get(`/customers/${id}/statement.pdf`, { params, responseType: "blob" }),
+  exportStatementCSV: (id, params) => api.get(`/customers/${id}/statement.csv`, { params, responseType: "blob" }),
+  exportStatementPDF: (id, params) => api.get(`/customers/${id}/statement.pdf`, { params, responseType: "blob" }),
 };
 
 export default customersAPI;

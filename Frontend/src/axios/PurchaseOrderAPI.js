@@ -1,13 +1,4 @@
-import axios from "axios";
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "/api", // fallback
-  withCredentials: true, // cookies/session ke liye
-  headers: {
-    "Content-Type": "application/json",
-    "Accept": "application/json",
-  },
-});
+import { api } from "./axios";
 
 // ✅ Purchase Order API
 const PurchaseOrderAPI = {

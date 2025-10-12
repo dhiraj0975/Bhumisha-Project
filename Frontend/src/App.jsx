@@ -1,11 +1,14 @@
 "use client";
 import React, { useState } from "react";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route ,Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Sidebar from "./components/Layout/Sidebar";
 import Navbar from "./components/Layout/Navbar";
+import LoginPage from "./pages/LoginPage";
+import { useAuth } from './contexts/AuthContext';
 import Dashboard from "./Pages/Dashboard";
+import ProtectedRoute from "./components/Layout/ProtectedRoute";
 import VendorManagement from "./Pages/VendorManagement.jsx";
 import FarmerRegistrationPage from "./Pages/FarmerRegistrationPage";
 import ProformaInvoice from "./Pages/ProformaInvoice";
@@ -20,6 +23,8 @@ import PurchaseOrders from "./components/PurchaseOrder/PurchaseOrders.jsx";
 import Invoice from "./components/PurchaseOrder/Invoice.jsx";
 import SalesOrders from "./components/salesOrders/SalesOrders.jsx";
 import SalesInvoice from "./components/salesOrders/SalesOrderInvoice.jsx";
+// import CompanyCreate from "./components/Company/CompanyCreate.jsx";
+import CompaniesPage from "./components/Company/CompaniesPage.jsx";
 
 
 export default function App() {
@@ -28,6 +33,31 @@ export default function App() {
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
   const toggleCollapse = () => setCollapsed(!collapsed);
+
+  const { token } = useAuth();
+
+  if (!token) {
+    return (
+      <>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/*" element={<Navigate to="/login" replace />} />
+        </Routes>
+        <ToastContainer
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
+      </>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-[var(--secondary-bg)]">
@@ -51,22 +81,21 @@ export default function App() {
         <main className="flex-1 p-6 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-
             <Route path="/vendor" element={<VendorManagement />} />
             <Route path="/farmer" element={<FarmerRegistrationPage />} />
             <Route path="/proforma" element={<ProformaInvoice />} />
             <Route path="/category" element={<Categories />} />
             <Route path="/product" element={<Products/>} />
-           <Route path="/purchases" element={<Purchases />} />
-           <Route path="/purchases/edit/:poId" element={<PurchaseEdit />} />
-           <Route path="/purchases/view/:poId" element={<PurchaseView />} />
-           <Route path="/customers" element={<CustomersPage />} />
-           <Route path="/sales" element={<SalesPage />} />
-           <Route path="/po-order" element={<PurchaseOrders />} />
+            <Route path="/purchases" element={<Purchases />} />
+            <Route path="/purchases/edit/:poId" element={<PurchaseEdit />} />
+            <Route path="/purchases/view/:poId" element={<PurchaseView />} />
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/sales" element={<SalesPage />} />
+            <Route path="/po-order" element={<PurchaseOrders />} />
             <Route path="/sales-orders" element={<SalesOrders />} />
-              <Route path="/sales-invoice/:id" element={<SalesInvoice />} />
-           <Route path="/invoice/:id" element={<Invoice />} />
-
+            <Route path="/sales-invoice/:id" element={<SalesInvoice />} />
+            <Route path="/invoice/:id" element={<Invoice />} />
+            <Route path="/company/new" element={<CompaniesPage />} />
           </Routes>
         </main>
       </div>

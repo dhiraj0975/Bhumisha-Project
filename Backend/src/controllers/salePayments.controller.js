@@ -1,12 +1,15 @@
 // controllers/salePayments.controller.js
 const SalePayments = require('../models/salePayments.model');
 const Sales = require('../models/sales.model');
+const { normalize } = require('../services/companyCode');
 
 const SalePaymentsController = {
   // Add a payment and auto-update sale.payment_status
   async addPayment(req, res) {
     try {
-      const { sale_id, customer_id, payment_date, amount, method = 'Cash', remarks = null } = req.body;
+      const { sale_id, customer_id, payment_date, amount, method = 'Cash', remarks = null, party_type = null, vendor_id = null, farmer_id = null } = req.body;
+  const code = normalize(req.headers['x-company-code'] || req.body.company_code || '');
+  if (!code) return res.status(400).json({ error: 'x-company-code required' });
 
       if (!sale_id || !customer_id || !payment_date || !amount || Number(amount) <= 0) {
         return res
@@ -21,6 +24,10 @@ const SalePaymentsController = {
         amount,
         method,
         remarks,
+        code,
+        party_type,
+        vendor_id,
+        farmer_id,
       });
 
       // Model returns { sale_id, paid, due, payment_status }
@@ -36,8 +43,9 @@ const SalePaymentsController = {
     try {
       const sale_id = Number(req.params.sale_id);
       if (!sale_id) return res.status(400).json({ error: 'Invalid sale ID' });
-
-      const rows = await SalePayments.listBySale(sale_id);
+  const code = normalize(req.headers['x-company-code'] || req.query.company_code || '');
+  if (!code) return res.status(400).json({ error: 'x-company-code required' });
+      const rows = await SalePayments.listBySale(sale_id, code);
       return res.json(rows);
     } catch (err) {
       console.error('getPaymentsBySale error:', err);
@@ -50,8 +58,9 @@ const SalePaymentsController = {
     try {
       const id = Number(req.params.id);
       if (!id) return res.status(400).json({ error: 'Invalid payment ID' });
-
-      const result = await SalePayments.delete(id);
+  const code = normalize(req.headers['x-company-code'] || req.query.company_code || '');
+  if (!code) return res.status(400).json({ error: 'x-company-code required' });
+      const result = await SalePayments.delete(id, code);
       if (!result?.affectedRows) {
         return res.status(404).json({ error: 'Payment not found' });
       }
@@ -67,9 +76,10 @@ const SalePaymentsController = {
     try {
       const customer_id = Number(req.params.customer_id);
       if (!customer_id) return res.status(400).json({ error: 'Invalid customer ID' });
-
-      const sales = await Sales.getByCustomerId(customer_id);
-      const payments = await SalePayments.getByCustomerId(customer_id); // Needs to exist in model
+  const code = normalize(req.headers['x-company-code'] || req.query.company_code || '');
+  if (!code) return res.status(400).json({ error: 'x-company-code required' });
+      const sales = await Sales.getByCustomerId(customer_id, code);
+      const payments = await SalePayments.getByCustomerId(customer_id, code); // Needs to exist in model
 
       let ledger = [];
       let totalSale = 0,
@@ -108,9 +118,10 @@ const SalePaymentsController = {
     try {
       const customer_id = Number(req.params.customer_id);
       if (!customer_id) return res.status(400).json({ error: 'Invalid customer ID' });
-
-      const sales = await Sales.getByCustomerId(customer_id);
-      const payments = await SalePayments.getByCustomerId(customer_id);
+      const code = String(req.headers['x-company-code'] || req.query.company_code || '').toLowerCase();
+      if (!code) return res.status(400).json({ error: 'x-company-code required' });
+      const sales = await Sales.getByCustomerId(customer_id, code);
+      const payments = await SalePayments.getByCustomerId(customer_id, code);
 
       let totalSale = 0,
         totalPaid = 0,

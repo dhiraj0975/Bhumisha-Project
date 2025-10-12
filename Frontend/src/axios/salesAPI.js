@@ -1,13 +1,5 @@
-import axios from "axios";
-
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL, // e.g., http://localhost:5000/api
-  withCredentials: true,
-  headers: {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-  },
-}); 
+// Use shared api instance so request interceptor (x-company-code) is applied
+import { api } from "./axios";
 
 const salesAPI = {
   getAll: () => api.get("/sales"),
@@ -16,7 +8,7 @@ const salesAPI = {
   update: (id, data) => api.put(`/sales/${id}`, data),
   delete: (id) => api.delete(`/sales/${id}`),
   getNewBillNo: () => api.get("/sales/new-bill-no"),
-    getPartyPreviousDue: (type, id) => api.get(`/sales/party/${type}/${id}/previous-due`),
+  getPartyPreviousDue: (type, id) => api.get(`/sales/party/${type}/${id}/previous-due`),
 };
 
 export default salesAPI;

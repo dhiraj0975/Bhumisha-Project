@@ -1,6 +1,6 @@
-// src/app.js
 const express = require("express");
 const cors = require("cors");
+
 // Optional middlewares (env-based toggles)
 const useHelmet = process.env.USE_HELMET === "true";
 const useMorgan = process.env.USE_MORGAN === "true";
@@ -28,6 +28,9 @@ const salesRoutes = require("./routes/sales.routes");
 const salePaymentsRoutes = require("./routes/salePayments.routes");
 const PurchaseOrderRouter = require("./routes/purchaseOrder.routes");
 const SalesOrderRouter = require("./routes/salesOrder.routes");
+const companyRoutes = require("./routes/company.routes");
+const authRoutes = require("./routes/auth.routes");
+const { requireAuth } = require('./middlewares/auth');
 
 // ---------- Core Config ----------
 const NODE_ENV = process.env.NODE_ENV || "development";
@@ -49,17 +52,19 @@ const corsOptions = {
   },
   methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization"],
+  // IMPORTANT: allow custom header used by tenant routing
+  allowedHeaders: ["Content-Type", "Authorization", "x-company-code"],
   exposedHeaders: ["Content-Disposition"],
   maxAge: 86400,
 };
 
+// Handle CORS for all requests and short-circuit OPTIONS
 app.use((req, res, next) => {
-  // Handle preflight early
+  const handler = cors(corsOptions);
   if (req.method === "OPTIONS") {
-    return cors(corsOptions)(req, res, () => res.sendStatus(204));
+    return handler(req, res, () => res.sendStatus(204));
   }
-  return cors(corsOptions)(req, res, next);
+  return handler(req, res, next);
 });
 
 // Body parsers
@@ -80,16 +85,20 @@ app.get("/health", (req, res) => {
 });
 
 // ---------- Routes ----------
-app.use("/api/vendors", vendorRoutes);
-app.use("/api/farmers", farmerRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/purchase", purchaseRoutes);
-app.use("/api/purchase-orders", PurchaseOrderRouter);
-app.use("/api/customers", customerRouter);
-app.use("/api/sales", salesRoutes);
-app.use("/api/so-orders", SalesOrderRouter);
-app.use("/api/sale-payments", salePaymentsRoutes);
+app.use("/api/auth", authRoutes);
+
+// Protected routes (require valid Bearer token)
+app.use("/api/vendors", requireAuth, vendorRoutes);
+app.use("/api/farmers", requireAuth, farmerRoutes);
+app.use("/api/categories", requireAuth, categoryRoutes);
+app.use("/api/products", requireAuth, productRoutes);
+app.use("/api/purchase", requireAuth, purchaseRoutes);
+app.use("/api/purchase-orders", requireAuth, PurchaseOrderRouter);
+app.use("/api/customers", requireAuth, customerRouter);
+app.use("/api/sales", requireAuth, salesRoutes);
+app.use("/api/so-orders", requireAuth, SalesOrderRouter);
+app.use("/api/sale-payments", requireAuth, salePaymentsRoutes);
+app.use("/api/companies", requireAuth, companyRoutes);
 
 // ---------- 404 ----------
 app.use((req, res) => {
@@ -103,21 +112,16 @@ app.use((err, req, res, _next) => {
     return res.status(403).json({ message: "CORS blocked: Origin not allowed" });
   }
 
-  // Structured error response
   const isProd = NODE_ENV === "production";
-  const payload = {
-    message: "Internal server error",
-  };
+  const payload = { message: "Internal server error" };
 
   if (!isProd) {
     payload.error = {
       message: err?.message,
       stack: err?.stack,
-      // Attach query context if set by db wrapper
       sql: err?.query,
       params: err?.params,
     };
-    // Console in non-prod
     // eslint-disable-next-line no-console
     console.error("Unhandled error:", err);
   }

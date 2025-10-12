@@ -1,13 +1,4 @@
-import axios from "axios";
-
-// ✅ Axios instance
-const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-  withCredentials: true,
-});
-
-console.log("reached at the API",api);
-
+import { api } from "./axios";
 
 // ✅ Vendor API calls
 const vendorAPI = {
@@ -15,7 +6,7 @@ const vendorAPI = {
   getAll: () => api.get("/vendors"),
   update: (id, data) => api.put(`/vendors/${id}`, data),
   remove: (id) => api.delete(`/vendors/${id}`),
-  updateStatus: (id, status) => api.patch(`/vendors/${id}/status`, { status }), // ✅ Naya add
+  updateStatus: (id, status) => api.patch(`/vendors/${id}/status`, { status }),
 };
 
 export default vendorAPI;

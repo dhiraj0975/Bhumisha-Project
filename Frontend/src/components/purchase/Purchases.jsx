@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { pick as pickCompanyColor } from "../../utils/companyColor";
 import PurchaseForm from "./PurchaseForm";
 import PurchaseList from "./PurchaseList";
 
@@ -11,7 +12,21 @@ export default function Purchases() {
 
   return (
     <div className=" bg-gray-100 min-h-screen">
-      <h1 className="text-2xl font-bold mb-6 bg-white p-3 shadow-md">Manage Purchases</h1>
+      <div className="flex items-center justify-between mb-6 bg-white p-3 shadow-md">
+        <h1 className="text-2xl font-bold">Manage Purchases</h1>
+        <div>
+          {(() => {
+            const code = (localStorage.getItem("company_code") || "").toLowerCase();
+            const { bg, text } = pickCompanyColor(code);
+            return (
+              <div className={`inline-flex items-center gap-3 px-3 py-2 rounded-lg ${bg} ${text}`}>
+                <div className="text-sm font-semibold">{(code || "(none)").toUpperCase()}</div>
+                <div className="text-xs bg-white/20 px-2 py-0.5 rounded-full">Company</div>
+              </div>
+            );
+          })()}
+        </div>
+      </div>
       
       {/* Purchase Form */}
       <div className="mb-10">
