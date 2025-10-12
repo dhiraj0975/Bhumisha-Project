@@ -20,7 +20,7 @@ export default function LoginPage() {
   };
 
   const submit = async (e) => {
-    e.preventDefault();
+    e.preventDefault();   
     if (!username || !password) {
       toast.error("Please enter username and password");
       return;
