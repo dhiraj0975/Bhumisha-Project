@@ -49,7 +49,7 @@ export default function CompanyList() {
         <table className="min-w-full text-sm">
           <thead className="bg-gray-100">
             <tr>
-              <th className="text-left px-3 py-2">Code</th>
+              <th className="text-left px-3 py-2">Company Code</th>
               <th className="text-left px-3 py-2">Name</th>
               <th className="text-left px-3 py-2">GST</th>
               <th className="text-left px-3 py-2">Contact</th>
@@ -65,7 +65,7 @@ export default function CompanyList() {
               </tr>
             )}
             {rows.map((r) => (
-              <tr key={r.id} className="border-t">
+              <tr key={r.id} className="border-t hover:bg-gray-300 text-center">
                 <td className="px-3 py-2 font-mono">{r.code}</td>
                 <td className="px-3 py-2">{r.name}</td>
                 <td className="px-3 py-2">{r.gst_no || "-"}</td>

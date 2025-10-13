@@ -154,6 +154,11 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
         {!collapsed && "PO Order"}
       </Link>
 
+              <Link to="/purchases" className={linkClass("/purchases")}>
+          <Sticker label="Purchases" symbol="🛒" decorative={collapsed ? false : true} />
+          {!collapsed && "Purchases"}
+        </Link>
+
 
       <Link to="/sales-orders" className={linkClass("/sales-orders")}>
   <Sticker label="Sales Orders" symbol="➕" decorative={collapsed ? false : true} />
@@ -162,10 +167,7 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
 
 
 
-        <Link to="/purchases" className={linkClass("/purchases")}>
-          <Sticker label="Purchases" symbol="🛒" decorative={collapsed ? false : true} />
-          {!collapsed && "Purchases"}
-        </Link>
+
 
         <Link to="/company/new" className={linkClass("/company/new")}>
           <Sticker label="Company" symbol="🏢" decorative={collapsed ? false : true} />
