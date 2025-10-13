@@ -137,7 +137,7 @@ export default function CompaniesPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col">
-              <label className="text-sm text-gray-600 mb-1">Code</label>
+              <label className="text-sm text-gray-600 mb-1">Company Code</label>
               <input name="code" className="border p-2 rounded-lg" value={form.code} onChange={onChange} required />
             </div>
             <div className="flex flex-col">
@@ -192,7 +192,7 @@ export default function CompaniesPage() {
               <thead>
                 <tr className="bg-gray-100">
                   <th className="p-2 border">Sl.No.</th>
-                  <th className="p-2 border">Code</th>
+                  <th className="p-2 border">Company Code</th>
                   <th className="p-2 border">Name</th>
                   <th className="p-2 border">GST No.</th>
                   <th className="p-2 border">Contact</th>

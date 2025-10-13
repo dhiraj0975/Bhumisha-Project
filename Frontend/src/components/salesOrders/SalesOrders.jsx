@@ -7,8 +7,8 @@ export default function SalesOrders() {
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
-    <div className="min-h-screen p-6 bg-gray-100">
-      <h2 className="text-2xl font-bold mb-4">Sales Orders</h2>
+    <div className="min-h-screen  bg-gray-100">
+      <h2 className="text-2xl bg-white px-2 py-2  font-bold mb-4">Sales Orders</h2>
 
       <div className="mb-6 bg-white rounded shadow p-4">
         <CreateSalesOrder

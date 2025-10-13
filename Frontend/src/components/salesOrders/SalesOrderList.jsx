@@ -55,8 +55,8 @@ export default function SalesOrderList({ onEdit,refreshKey = 0  }) {
   if (err) return <div className="p-6 bg-white shadow rounded text-red-600">{err}</div>;
 
   return (
-    <div className="p-6 bg-white shadow rounded">
-      <div className="flex items-center justify-between mb-3">
+    <div className="bg-white shadow rounded">
+      <div className="flex items-center border-b border-gray-200 justify-between mb-3">
         <h3 className="text-lg font-semibold">Sales Orders</h3>
       </div>
 

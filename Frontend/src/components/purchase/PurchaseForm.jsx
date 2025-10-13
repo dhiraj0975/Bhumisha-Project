@@ -1,5 +1,3 @@
-
-// src/pages/purchase/PurchaseForm.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import PurchaseAPI from "../../axios/purchaseApi";
@@ -46,21 +44,27 @@ const PurchaseForm = ({ onSaved }) => {
   const [products, setProducts] = useState([]);
 
   // Header
-const [header, setHeader] = useState({
-  bill_date: "",
-  bill_time: "00:00",
-  party_type: "vendor",
-  vendor_id: "",
-  farmer_id: "",
-  address: "",
-  mobile_no: "",
-  gst_no: "",
-  bill_no: "",
-  terms_condition: "",
-  party_balance: 0,        // NEW
-  party_min_balance: 0,    // NEW
-});
+  const [header, setHeader] = useState({
+    bill_date: "",
+    bill_time: "00:00",
+    bill_time_am_pm: "PM",
+    party_type: "vendor",
+    vendor_id: "",
+    farmer_id: "",
+    address: "",
+    mobile_no: "",
+    gst_no: "",
+    bill_no: "",
+    terms_condition: "",
+    party_balance: 0,
+    party_min_balance: 0,
 
+    // Payment summary fields (Sales-style)
+    old_amount: 0,
+    paid_amount: 0,
+    payment_method: "Cash",
+    payment_note: "",
+  });
 
   // Rows
   const [rows, setRows] = useState([
@@ -85,6 +89,7 @@ const [header, setHeader] = useState({
           hsn_code: p.hsn_code || "",
           available: Number(p.size || 0),
           purchaseRate: Number(p.purchase_rate || 0),
+          gst_percent: Number(p.gst_percent ?? p.gst_rate ?? p.gst ?? 0),
           raw: p,
         }));
         setProducts(all);
@@ -113,54 +118,54 @@ const [header, setHeader] = useState({
   }, []);
 
   // Party type change
-const onPartyTypeChange = (e) => {
-  const val = e.target.value;
-  setHeader((prev) => ({
-    ...prev,
-    party_type: val,
-    vendor_id: val === "vendor" ? prev.vendor_id : "",
-    farmer_id: val === "farmer" ? prev.farmer_id : "",
-    address: "",
-    mobile_no: "",
-    gst_no: "",
-    party_balance: 0,         // reset
-    party_min_balance: 0,     // reset
-  }));
-};
-
+  const onPartyTypeChange = (e) => {
+    const val = e.target.value;
+    setHeader((prev) => ({
+      ...prev,
+      party_type: val,
+      vendor_id: val === "vendor" ? prev.vendor_id : "",
+      farmer_id: val === "farmer" ? prev.farmer_id : "",
+      address: "",
+      mobile_no: "",
+      gst_no: "",
+      party_balance: 0,
+      party_min_balance: 0,
+      old_amount: 0, // reset old when switching party type
+      paid_amount: 0,
+    }));
+  };
 
   // Party change (vendor/farmer)
-const onPartyChange = (e) => {
-  const id = e.target.value;
-  if (header.party_type === "vendor") {
-    const v = vendors.find((x) => String(x.id) === String(id));
-    setHeader((prev) => ({
-      ...prev,
-      vendor_id: id,
-      farmer_id: "",
-      address: v?.address || "",
-      mobile_no: v?.contact_number || "",
-      gst_no: v?.gst_no || "",
-      party_balance: Number(v?.balance ?? 0),          // NEW
-      party_min_balance: Number(v?.min_balance ?? 0),  // NEW
-    }));
-  } else {
-    const f = farmers.find((x) => String(x.id) === String(id));
-    setHeader((prev) => ({
-      ...prev,
-      farmer_id: id,
-      vendor_id: "",
-      // farmers table me address fields na ho to blank
-      address: "",
-      mobile_no: f?.contact_number || "",
-      gst_no: "", // usually N/A for farmer
-      party_balance: Number(f?.balance ?? 0),          // NEW
-      party_min_balance: Number(f?.min_balance ?? 0),  // NEW
-    }));
-  }
-};
-
-
+  const onPartyChange = (e) => {
+    const id = e.target.value;
+    if (header.party_type === "vendor") {
+      const v = vendors.find((x) => String(x.id) === String(id));
+      setHeader((prev) => ({
+        ...prev,
+        vendor_id: id,
+        farmer_id: "",
+        address: v?.address || "",
+        mobile_no: v?.contact_number || "",
+        gst_no: v?.gst_no || "",
+        party_balance: Number(v?.balance ?? 0),
+        party_min_balance: Number(v?.min_balance ?? 0),
+        old_amount: Number(v?.balance ?? 0), // seed old with party balance
+      }));
+    } else {
+      const f = farmers.find((x) => String(x.id) === String(id));
+      setHeader((prev) => ({
+        ...prev,
+        farmer_id: id,
+        vendor_id: "",
+        address: "",
+        mobile_no: f?.contact_number || "",
+        gst_no: "",
+        party_balance: Number(f?.balance ?? 0),
+        party_min_balance: Number(f?.min_balance ?? 0),
+        old_amount: Number(f?.balance ?? 0),
+      }));
+    }
+  };
 
   // Backward compat
   const onVendorChange = (e) => onPartyChange(e);
@@ -174,22 +179,28 @@ const onPartyChange = (e) => {
         const data = res?.data || {};
         const { time } = data.bill_time ? fromISOToTime(data.bill_time) : { time: "00:00" };
 
-setHeader((prev) => ({
-  ...prev,
-  bill_date: data.bill_date || "",
-  bill_time: time,
-  party_type: data.party_type || "vendor",
-  vendor_id: data.vendor_id || "",
-  farmer_id: data.farmer_id || "",
-  address: data.address || "",
-  mobile_no: data.mobile_no || "",
-  gst_no: data.gst_no || "",
-  bill_no: data.bill_no || "",
-  terms_condition: data.terms_condition || "",
-  party_balance: Number(data.party_balance ?? data.balance ?? 0),          // NEW (backend should send)
-  party_min_balance: Number(data.party_min_balance ?? data.min_balance ?? 0), // NEW
-}));
+        setHeader((prev) => ({
+          ...prev,
+          bill_date: data.bill_date || "",
+          bill_time: time,
+          bill_time_am_pm: data.bill_time ? (Number(data.bill_time.slice(11, 13)) >= 12 ? "PM" : "AM") : "PM",
+          party_type: data.party_type || "vendor",
+          vendor_id: data.vendor_id || "",
+          farmer_id: data.farmer_id || "",
+          address: data.address || "",
+          mobile_no: data.mobile_no || "",
+          gst_no: data.gst_no || "",
+          bill_no: data.bill_no || "",
+          terms_condition: data.terms_condition || "",
+          party_balance: Number(data.party_balance ?? data.balance ?? 0),
+          party_min_balance: Number(data.party_min_balance ?? data.min_balance ?? 0),
 
+          // hydrate payments if present
+          old_amount: Number(data.old_amount ?? data.previous_due ?? 0),
+          paid_amount: Number(data.paid_amount ?? 0),
+          payment_method: data.payment_method || "Cash",
+          payment_note: data.payment_note || "",
+        }));
 
         setRows(
           (data.items || []).map((it) => {
@@ -202,7 +213,7 @@ setHeader((prev) => ({
               size: Number(it.size || 0),
               rate: Number(it.rate || p?.purchaseRate || 0),
               d1_percent: Number(it.d1_percent ?? it.discount_rate ?? 0),
-              gst_percent: Number(it.gst_percent ?? 0),
+              gst_percent: Number(it.gst_percent ?? p?.gst_percent ?? 0),
             };
           })
         );
@@ -212,7 +223,7 @@ setHeader((prev) => ({
     };
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, poId]);
+  }, [isEditMode, poId, products]);
 
   const onHeader = (e) => setHeader((p) => ({ ...p, [e.target.name]: e.target.value }));
 
@@ -229,6 +240,7 @@ setHeader((prev) => ({
         next[i].hsn_code = p?.hsn_code || "";
         next[i].available = Number(p?.available || 0);
         next[i].rate = Number(p?.purchaseRate || 0);
+        next[i].gst_percent = Number(p?.gst_percent || 0); // auto-fill GST
         next[i].size = 1;
       }
       if (field === "size") {
@@ -299,6 +311,10 @@ setHeader((prev) => ({
           gst_percent: Number(r.gst_percent || 0),
         })),
         summary: totals,
+
+        // computed remaining
+        remaining_amount:
+          Number(header.old_amount || 0) + Number(totals.final || 0) - Number(header.paid_amount || 0),
       };
 
       if (isEditMode) {
@@ -369,75 +385,177 @@ setHeader((prev) => ({
 
   return (
     <form onSubmit={onSubmit} className="p-3">
-      {/* Header */}
-      <div className="grid grid-cols-6 gap-3 border p-3 overflow-auto rounded">
-        <div className="flex flex-col">
-          <label className="text-xs">Bill Date</label>
-          <input
-            type="date"
-            className="border rounded p-1"
-            name="bill_date"
-            value={header.bill_date}
-            onChange={onHeader}
-          />
+      {/* Order Summary + Header */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start mb-3">
+        {/* Summary Card */}
+        <div className="lg:col-span-1">
+          <div className="bg-white border rounded-lg shadow-sm p-4">
+            <div className="text-sm font-semibold text-gray-800 mb-2">Order Summary</div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">Taxable</span>
+                <span className="font-semibold">{fx(totals.taxable)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">GST</span>
+                <span className="font-semibold">{fx(totals.gst)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-gray-600">Grand Total</span>
+                <span className="text-base font-semibold">{fx(totals.final)}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 mt-2 border-t space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-gray-600">{header.party_type === "vendor" ? "Vendor" : "Farmer"}</span>
+                <span className="text-gray-800">
+                  {(() => {
+                    if (header.party_type === "vendor") {
+                      const v = vendors.find((x) => String(x.id) === String(header.vendor_id));
+                      return v?.vendor_name || v?.name || "-";
+                    }
+                    const f = farmers.find((x) => String(x.id) === String(header.farmer_id));
+                    return f?.name || "-";
+                  })()}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-gray-50 rounded p-2 text-xs">
+                  <div className="text-gray-600">Party Balance</div>
+                  <div className="font-semibold">{fx(header.party_balance)}</div>
+                </div>
+                <div className="bg-gray-50 rounded p-2 text-xs">
+                  <div className="text-gray-600">Min Balance</div>
+                  <div className="font-semibold">{fx(header.party_min_balance)}</div>
+                </div>
+              </div>
+            </div>
+
+
+          </div>
         </div>
 
-        <div className="flex flex-col">
-          <label className="text-xs">Party Type</label>
-          <select className="border rounded p-1" value={header.party_type} onChange={onPartyTypeChange}>
-            <option value="vendor">Vendor</option>
-            <option value="farmer">Farmer</option>
-          </select>
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-xs">{header.party_type === "vendor" ? "Vendor" : "Farmer"}</label>
-          <select
-            className="border rounded p-1"
-            name={header.party_type === "vendor" ? "vendor_id" : "farmer_id"}
-            value={header.party_type === "vendor" ? header.vendor_id : header.farmer_id}
-            onChange={onPartyChange}
-          >
-            <option value="">Select</option>
-            {(header.party_type === "vendor" ? vendors : farmers).map((p) => (
-              <option key={p.id} value={p.id}>
-                {header.party_type === "vendor" ? (p.vendor_name || p.name) : p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-xs">ADDRESS</label>
-          <input className="border rounded p-1" name="address" value={header.address} onChange={onHeader} />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs">MOBILE NO</label>
-          <input className="border rounded p-1" name="mobile_no" value={header.mobile_no} onChange={onHeader} />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs">GST No</label>
-          <input className="border rounded p-1" name="gst_no" value={header.gst_no} onChange={onHeader} />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs">Bill No.</label>
-          <input className="border rounded p-1" name="bill_no" value={header.bill_no} onChange={onHeader} />
-        </div>
+        {/* Header Card */}
+        <div className="lg:col-span-2">
+          <div className="bg-white border rounded-lg shadow-sm p-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               <div className="flex flex-col">
-  <label className="text-xs">Party Balance</label>
-  <input
-    className="border rounded p-1 bg-gray-100"
-    name="party_balance"
-    value={fx(header.party_balance)}
-    readOnly
-  />
-</div>
+                <label className="text-xs">Bill Date</label>
+                <input type="date" className="border rounded p-1" name="bill_date" value={header.bill_date} onChange={onHeader} />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs">Party Type</label>
+                <select className="border rounded p-1" value={header.party_type} onChange={onPartyTypeChange}>
+                  <option value="vendor">Vendor</option>
+                  <option value="farmer">Farmer</option>
+                </select>
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs">{header.party_type === "vendor" ? "Vendor" : "Farmer"}</label>
+                <select
+                  className="border rounded p-1"
+                  name={header.party_type === "vendor" ? "vendor_id" : "farmer_id"}
+                  value={header.party_type === "vendor" ? header.vendor_id : header.farmer_id}
+                  onChange={onPartyChange}
+                >
+                  <option value="">Select</option>
+                  {(header.party_type === "vendor" ? vendors : farmers).map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {header.party_type === "vendor" ? (p.vendor_name || p.name) : p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
+              <div className="flex flex-col lg:col-span-2">
+                <label className="text-xs">ADDRESS</label>
+                <input className="border rounded p-1" name="address" value={header.address} onChange={onHeader} />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs">MOBILE NO</label>
+                <input className="border rounded p-1" name="mobile_no" value={header.mobile_no} onChange={onHeader} />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs">GST No</label>
+                <input className="border rounded p-1" name="gst_no" value={header.gst_no} onChange={onHeader} />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs">Bill No.</label>
+                <input className="border rounded p-1" name="bill_no" value={header.bill_no} onChange={onHeader} />
+              </div>
+              <div className="flex flex-col">
+                <label className="text-xs">Party Balance</label>
+                <input className="border rounded p-1 bg-gray-100" name="party_balance" value={fx(header.party_balance)} readOnly />
+              </div>
+
+                            <div className="">
+                <div className="text-xs">
+                  <label className="text-gray-600 block">Old</label>
+                  <input
+                    type="number"
+                    readOnly
+                    inputMode="decimal"
+                    className="border curser-not-allowed bg-gray-100  rounded p-1 w-full"
+                    value={header.old_amount ?? 0}
+                    onChange={(e) => setHeader((p) => ({ ...p, old_amount: Number(e.target.value || 0) }))}
+                  />
+                </div>
+                <div className="text-xs">
+                  <label className="text-gray-600 block">Paid</label>
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    className="border rounded p-1 w-full"
+                    value={header.paid_amount ?? 0}
+                    onChange={(e) => setHeader((p) => ({ ...p, paid_amount: Number(e.target.value || 0) }))}
+                  />
+                </div>
+                <div className="text-xs">
+                  <label className="text-gray-600 block">Remaining</label>
+                  <input
+                    readOnly
+                    className="border rounded p-1 w-full bg-gray-100"
+                    value={fx((header.old_amount ?? 0) + (totals?.final ?? 0) - (header.paid_amount ?? 0))}
+                  />
+                </div>
+              </div>
+
+              <div className="">
+                <div className="text-xs">
+                  <label className="text-gray-600 block">Payment Method</label>
+                  <select
+                    className="border rounded p-1 w-full"
+                    value={header.payment_method}
+                    onChange={(e) => setHeader((p) => ({ ...p, payment_method: e.target.value }))}
+                  >
+                    <option>Cash</option>
+                    <option>UPI</option>
+                    <option>Card</option>
+                    <option>Bank</option>
+                    <option>Credit</option>
+                  </select>
+                </div>
+                <div className="text-xs">
+                  <label className="text-gray-600 block">Payment Note</label>
+                  <input
+                    className="border rounded p-1 w-full"
+                    placeholder="Ref/UPI/Txn/Cheque No"
+                    value={header.payment_note}
+                    onChange={(e) => setHeader((p) => ({ ...p, payment_note: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
       </div>
 
-
-
-      <div className="bg-black text-yellow-300 text-center text-2xl font-semibold py-2 mt-3 mb-2 rounded">
+      {/* Big total bar (optional) */}
+      <div className="bg-black text-yellow-300 text-center text-2xl font-semibold py-2 mt-1 mb-2 rounded">
         FINAL AMOUNT: {fx(totals.final)}
       </div>
 
@@ -470,15 +588,12 @@ setHeader((prev) => ({
           </thead>
           <tbody>
             {rows.map((r, i) => {
-              const c = ((rr) => {
-                const base = (rr.size || 0) * (rr.rate || 0);
-                const perUnitDisc = ((rr.rate || 0) * (rr.d1_percent || 0)) / 100;
-                const totalDisc = (rr.size || 0) * perUnitDisc;
-                const taxable = Math.max(0, base - totalDisc);
-                const gstAmt = (taxable * (rr.gst_percent || 0)) / 100;
-                const final = taxable + gstAmt;
-                return { base, perUnitDisc, totalDisc, taxable, gstAmt, final };
-              })(r);
+              const base = (r.size || 0) * (r.rate || 0);
+              const perUnitDisc = ((r.rate || 0) * (r.d1_percent || 0)) / 100;
+              const totalDisc = (r.size || 0) * perUnitDisc;
+              const taxable = Math.max(0, base - totalDisc);
+              const gstAmt = (taxable * (r.gst_percent || 0)) / 100;
+              const final = taxable + gstAmt;
 
               return (
                 <tr key={i} className="odd:bg-white even:bg-gray-50">
@@ -498,6 +613,7 @@ setHeader((prev) => ({
                             onRow(i, "hsn_code", p.hsn_code || "");
                             onRow(i, "rate", Number(p.purchaseRate || 0));
                             onRow(i, "available", Number(p.available || 0));
+                            onRow(i, "gst_percent", Number(p.gst_percent || 0));
                           }
                         }}
                       >
@@ -542,7 +658,7 @@ setHeader((prev) => ({
                     />
                   </td>
 
-                  <td className="border px-2 py-1">{fx(c.base)}</td>
+                  <td className="border px-2 py-1">{fx(base)}</td>
 
                   <td className="border px-2 py-1">
                     <input
@@ -554,21 +670,11 @@ setHeader((prev) => ({
                   </td>
 
                   <td className="border px-2 py-1">
-                    <input
-                      type="text"
-                      className="border rounded p-1 w-20 bg-gray-100"
-                      value={fx(c.perUnitDisc)}
-                      readOnly
-                    />
+                    <input type="text" className="border rounded p-1 w-20 bg-gray-100" value={fx(perUnitDisc)} readOnly />
                   </td>
 
                   <td className="border px-2 py-1">
-                    <input
-                      type="text"
-                      className="border rounded p-1 w-24 bg-gray-100"
-                      value={fx(c.totalDisc)}
-                      readOnly
-                    />
+                    <input type="text" className="border rounded p-1 w-24 bg-gray-100" value={fx(totalDisc)} readOnly />
                   </td>
 
                   <td className="border px-2 py-1">
@@ -580,15 +686,11 @@ setHeader((prev) => ({
                     />
                   </td>
 
-                  <td className="border px-2 py-1">{fx(c.gstAmt)}</td>
-                  <td className="border px-2 py-1">{fx(c.final)}</td>
+                  <td className="border px-2 py-1">{fx(gstAmt)}</td>
+                  <td className="border px-2 py-1">{fx(final)}</td>
 
                   <td className="border px-2 py-1 text-center">
-                    <button
-                      type="button"
-                      className="text-red-600 active:scale-95"
-                      onClick={() => removeRow(i)}
-                    >
+                    <button type="button" className="text-red-600 active:scale-95" onClick={() => removeRow(i)}>
                       ❌
                     </button>
                   </td>

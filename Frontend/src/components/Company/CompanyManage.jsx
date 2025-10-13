@@ -96,7 +96,7 @@ export default function CompanyManage() {
         <h2 className="font-medium mb-3">Create Company</h2>
         <form onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm mb-1">Code</label>
+            <label className="block text-sm mb-1">Company Code</label>
             <input
               name="code"
               value={form.code}

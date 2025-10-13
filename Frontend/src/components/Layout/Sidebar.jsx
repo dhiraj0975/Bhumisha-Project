@@ -166,7 +166,10 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
      </Link>
 
 
-
+        <Link to="/sales" className={linkClass("/sales")}>
+          <Sticker label="Sales" symbol="💹" decorative={collapsed ? false : true} />
+          {!collapsed && "Sales"}
+        </Link>
 
 
         <Link to="/company/new" className={linkClass("/company/new")}>
@@ -174,10 +177,7 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
           {!collapsed && "Company"}
         </Link>
 
-        <Link to="/sales" className={linkClass("/sales")}>
-          <Sticker label="Sales" symbol="💹" decorative={collapsed ? false : true} />
-          {!collapsed && "Sales"}
-        </Link>
+
       </nav>
     </aside>
   );
