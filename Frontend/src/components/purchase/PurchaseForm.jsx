@@ -672,7 +672,7 @@ setRows(
                 </th>
               ))}
             </tr>
-          </thead>
+          </thead> 
           <tbody>
             {rows.map((r, i) => {
               const base = (r.size || 0) * (r.rate || 0);
