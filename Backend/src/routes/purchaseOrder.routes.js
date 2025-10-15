@@ -21,4 +21,10 @@ PurchaseOrderRouter.delete("/:id", purchaseOrderController.delete);
 // Generate invoice payload from PO
 PurchaseOrderRouter.get("/:id/invoice", purchaseOrderController.getInvoice);
 
+
+// NEW: PO → Purchase prefill
+PurchaseOrderRouter.get("/:id/for-purchase", purchaseOrderController.getForPurchase);
+
+
+
 module.exports = PurchaseOrderRouter;

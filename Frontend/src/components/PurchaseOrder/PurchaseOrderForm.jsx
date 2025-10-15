@@ -10,6 +10,7 @@ import {
 } from "../../features/purchaseOrders/purchaseOrderSlice";
 // If farmers Redux slice exists:
 import { fetchFarmers } from "../../features/farmers/farmerSlice";
+import Swal from "sweetalert2";
 
 const fx = (n, d = 2) => (isNaN(n) ? "0.00" : Number(n).toFixed(d));
 
@@ -39,6 +40,24 @@ const PurchaseOrderForm = ({ purchaseOrder, onSubmitted }) => {
     [products]
   );
 
+  const emptyHeader = {
+    date: "",
+    bill_time: "00:00",
+    bill_time_am_pm: "PM",
+    po_no: "",
+    party_type: "vendor",
+    vendor_id: "",
+    farmer_id: "",
+    address: "",
+    mobile_no: "",
+    gst_no: "",
+    place_of_supply: "",
+    terms_condition: "",
+    party_balance: 0,
+    party_min_balance: 0,
+  };
+  const emptyRow = { product_id: "", item_name: "", hsn_code: "", available: 0, qty: 1, rate: 0, d1_percent: 0, gst_percent: 0 };
+
   // Header styled like PurchaseForm + PO fields
   const [header, setHeader] = useState({
     date: "",
@@ -66,7 +85,7 @@ const PurchaseOrderForm = ({ purchaseOrder, onSubmitted }) => {
     dispatch(fetchPurchaseOrders());
     dispatch(fetchVendors());
     dispatch(fetchProducts());
-      dispatch(fetchFarmers()); // ensure this runs
+    dispatch(fetchFarmers()); // ensure this runs
     // dispatch(fetchFarmers()); // uncomment if you have farmers thunk
 
     const now = new Date();
@@ -144,6 +163,7 @@ const PurchaseOrderForm = ({ purchaseOrder, onSubmitted }) => {
 
   const onPartyChange = (e) => {
     const id = e.target.value;
+
     if (header.party_type === "vendor") {
       const v = vendors.find((x) => String(x.id ?? x._id) === String(id));
       setHeader((prev) => ({
@@ -156,8 +176,9 @@ const PurchaseOrderForm = ({ purchaseOrder, onSubmitted }) => {
         party_balance: Number(v?.balance ?? 0),
         party_min_balance: Number(v?.min_balance ?? 0),
       }));
-    } else {
-      const f = (Array.isArray(farmers) ? farmers : []).find((x) => String(x.id ?? x._id) === String(id));
+    } else if (header.party_type === "farmer") {
+      const list = Array.isArray(farmers) ? farmers : [];
+      const f = list.find((x) => String(x.id ?? x._id) === String(id));
       setHeader((prev) => ({
         ...prev,
         farmer_id: id,
@@ -278,11 +299,34 @@ const PurchaseOrderForm = ({ purchaseOrder, onSubmitted }) => {
         };
       });
 
+      // Derive mutable IDs
+      const isVendor = header.party_type === "vendor";
+      let vendor_id = isVendor && header.vendor_id !== "" ? Number(header.vendor_id) : null;
+      let farmer_id = !isVendor && header.farmer_id !== "" ? Number(header.farmer_id) : null;
+
+      // Validate selection early
+      if (isVendor && !vendor_id) {
+        await Swal.fire({ icon: "error", title: "Select vendor", text: "Please select a valid vendor", confirmButtonColor: "#dc2626" });
+        return;
+      }
+      if (!isVendor && !farmer_id) {
+        await Swal.fire({ icon: "error", title: "Select farmer", text: "Please select a valid farmer", confirmButtonColor: "#dc2626" });
+        return;
+      }
+
+      // Hard guard: force the other id to null
+      if (isVendor) {
+        farmer_id = null;
+      } else {
+        vendor_id = null;
+      }
+
+      // Now build payload
       const payload = {
         po_no: header.po_no,
         party_type: header.party_type,
-        vendor_id: header.party_type === "vendor" ? Number(header.vendor_id) : null,
-        farmer_id: header.party_type === "farmer" ? Number(header.farmer_id) : null,
+        vendor_id,
+        farmer_id,
         date: header.date || null,
         bill_time,
         address: header.address || "",
@@ -301,7 +345,33 @@ const PurchaseOrderForm = ({ purchaseOrder, onSubmitted }) => {
         : createPurchaseOrder(payload);
       const result = await dispatch(action);
 
+      if (result.error) {
+        await Swal.fire({
+          icon: "error",
+          title: "Failed",
+          text: result?.payload?.error || "Could not save Purchase Order",
+          confirmButtonColor: "#dc2626",
+        });
+        return;
+      }
+
+      await Swal.fire({
+        icon: "success",
+        title: isEditMode ? "PO updated" : "PO created",
+        text: isEditMode ? "Purchase Order updated successfully" : "Purchase Order created successfully",
+        confirmButtonColor: "#2563eb",
+      });
+
       if (!result.error) {
+        await dispatch(fetchPurchaseOrders());
+        // reset but keep current date/time so user can continue quickly
+        setHeader((prev) => ({
+          ...emptyHeader,
+          date: prev.date,
+          bill_time: prev.bill_time,
+          bill_time_am_pm: prev.bill_time_am_pm,
+        }));
+        setRows([{ ...emptyRow }]);
         onSubmitted && onSubmitted();
       }
     } catch (err) {
@@ -316,7 +386,7 @@ const PurchaseOrderForm = ({ purchaseOrder, onSubmitted }) => {
       {/* Header */}
       <div className="grid grid-cols-6 gap-3 border p-3 overflow-auto rounded">
         <div className="flex flex-col">
-          <label className="text-xs">Bill Date</label>
+          <label className="text-xs">Bill Dateeee</label>
           <input type="date" className="border rounded p-1" name="date" value={header.date} onChange={onHeader} />
         </div>
 
@@ -330,20 +400,19 @@ const PurchaseOrderForm = ({ purchaseOrder, onSubmitted }) => {
 
         <div className="flex flex-col">
           <label className="text-xs">{header.party_type === "vendor" ? "Vendor" : "Farmer"}</label>
-<select
-  className="border rounded p-1"
-  name={header.party_type === "vendor" ? "vendor_id" : "farmer_id"}
-  value={header.party_type === "vendor" ? header.vendor_id : header.farmer_id}
-  onChange={onPartyChange}
->
-  <option value="">Select</option>
-  {(header.party_type === "vendor" ? vendors : farmers).map((p) => (
-    <option key={p.id || p._id} value={p.id || p._id}>
-      {header.party_type === "vendor" ? (p.vendor_name || p.name || p.firm_name) : (p.name || p.farmer_name)}
-    </option>
-  ))}
-</select>
-
+          <select
+            className="border rounded p-1"
+            name={header.party_type === "vendor" ? "vendor_id" : "farmer_id"}
+            value={header.party_type === "vendor" ? header.vendor_id : header.farmer_id}
+            onChange={onPartyChange}
+          >
+            <option value="">Select</option>
+            {(header.party_type === "vendor" ? vendors : farmers).map((p) => (
+              <option key={String(p.id ?? p._id)} value={String(p.id ?? p._id)}>
+                {p.vendor_name || p.name || p.firm_name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex flex-col">

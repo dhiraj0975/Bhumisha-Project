@@ -8,7 +8,7 @@ export default function SalesOrders() {
 
   return (
     <div className="min-h-screen  bg-gray-100">
-      <h2 className="text-2xl bg-white px-2 py-2  font-bold mb-4">Sales Orders</h2>
+      <h2 className="text-2xl bg-white px-2 py-2 rounded-md  font-bold mb-4">Sales Orders</h2>
 
       <div className="mb-6 bg-white rounded shadow p-4">
         <CreateSalesOrder

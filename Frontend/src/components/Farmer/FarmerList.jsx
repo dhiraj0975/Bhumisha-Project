@@ -17,7 +17,7 @@ export default function FarmerList({ onEdit }) {
 
   useEffect(() => {
     dispatch(fetchFarmers());
-  }, [dispatch]);
+  }, [dispatch]); 
 
   const handleDelete = (id) => {
     if (window.confirm("Are you sure you want to delete this farmer?")) {

@@ -134,15 +134,19 @@ export default function Sidebar({ isOpen, collapsed, toggleSidebar, toggleCollap
           {!collapsed && "Farmer"}
         </Link>
 
+
+
+                <Link to="/customers" className={linkClass("/customers")}>
+          <Sticker label="Customers" symbol="👥" decorative={collapsed ? false : true} />
+          {!collapsed && "Customers"}
+        </Link>
+
         <Link to="/category" className={linkClass("/category")}>
           <Sticker label="Category" symbol="🏷️" decorative={collapsed ? false : true} />
           {!collapsed && "Category"}
         </Link>
 
-        <Link to="/customers" className={linkClass("/customers")}>
-          <Sticker label="Customers" symbol="👥" decorative={collapsed ? false : true} />
-          {!collapsed && "Customers"}
-        </Link>
+
 
         <Link to="/product" className={linkClass("/product")}>
           <Sticker label="Products" symbol="📦" decorative={collapsed ? false : true} />

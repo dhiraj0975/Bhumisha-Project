@@ -96,23 +96,23 @@ const handleEdit = (vendor) => {
         const min = Number(params.row.min_balance ?? 5000);
         const low = bal < min;
         return (
-          <span className={`${low ? "text-red-600 font-semibold" : "text-gray-800"}`}>
+          <span className={`${low ? "text-gray-800 font-semibold" : " text-red-600 font-semibold"}`}>
             {bal.toFixed(2)}
           </span>
         );
       },
     },
 
-    // ADDED: Min Balance column
-    // {
-    //   field: "min_balance",
-    //   headerName: "Min Balance",
-    //   width: 140,
-    //   renderCell: (params) => {
-    //     const min = Number(params.row.min_balance ?? 5000);
-    //     return <span className="text-gray-800">{min.toFixed(2)}</span>;
-    //   },
-    // },
+   // ADDED: Min Balance column
+    {
+      field: "min_balance",
+      headerName: "Min Balance",
+      width: 140,
+      renderCell: (params) => {
+        const min = Number(params.row.min_balance ?? 5000);
+        return <span className="text-gray-800">{min.toFixed(2)}</span>;
+      },
+    },
 
     {
       field: "status",
@@ -244,104 +244,104 @@ const handleEdit = (vendor) => {
       </div>
 
       {/* Bank Details Modal */}
-      {bankDetailsVendor && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 min-w-[400px] max-w-2xl w-full mx-4 transform transition-all">
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-full">
-                  <CreditCard size={24} className="text-blue-600" />
+{bankDetailsVendor && (
+  <div className="fixed inset-0 z-50">
+    {/* Backdrop */}
+    <div
+      className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+      onClick={() => setBankDetailsVendor(null)}
+    />
+    {/* Card */}
+    <div className="relative h-full w-full flex items-center justify-center p-4">
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl ring-1 ring-black/5 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
+              <CreditCard size={22} />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Bank details</h2>
+              <p className="text-xs text-gray-500">{bankDetailsVendor?.firm_name || "—"}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setBankDetailsVendor(null)}
+            className="p-2 rounded-full hover:bg-gray-100 text-gray-500 hover:text-gray-700"
+            aria-label="Close"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="px-6 py-5">
+          {(() => {
+            const bank = {
+              pan_number: bankDetailsVendor?.pan_number || "",
+              account_holder_name: bankDetailsVendor?.account_holder_name || "",
+              bank_name: bankDetailsVendor?.bank_name || "",
+              account_number: bankDetailsVendor?.account_number || "",
+              ifsc_code: bankDetailsVendor?.ifsc_code || "",
+              branch_name: bankDetailsVendor?.branch_name || ""
+            };
+
+            const Item = ({ label, value, icon, isCopy }) => (
+              <div className="group border rounded-xl p-3.5 hover:border-gray-300 transition-colors">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-gray-600">{icon}</span>
+                  <p className="text-xs font-medium text-gray-600">{label}</p>
                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800">Bank Details</h2>
-                  <p className="text-gray-600">{bankDetailsVendor.firm_name}</p>
+                <div className="flex items-center justify-between gap-3">
+                  <p className={`text-sm ${value ? "text-gray-900 font-semibold" : "text-gray-400"}`}>
+                    {value || "Not available"}
+                  </p>
+                  {isCopy && value ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(value);
+                        } catch {}
+                      }}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-xs px-2 py-1 rounded bg-gray-100 hover:bg-gray-200"
+                    >
+                      Copy
+                    </button>
+                  ) : null}
                 </div>
               </div>
-              <button
-                onClick={() => setBankDetailsVendor(null)}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-2 hover:bg-gray-100 rounded-full"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+            );
 
-            {(() => {
-              const bank = {
-                pan_number: bankDetailsVendor.pan_number || "",
-                account_holder_name: bankDetailsVendor.account_holder_name || "",
-                bank_name: bankDetailsVendor.bank_name || "",
-                account_number: bankDetailsVendor.account_number || "",
-                ifsc_code: bankDetailsVendor.ifsc_code || "",
-                branch_name: bankDetailsVendor.branch_name || ""
-              };
-              return (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 border border-purple-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileSignature size={18} className="text-purple-600" />
-                        <p className="text-sm font-semibold text-purple-800">PAN Number</p>
-                      </div>
-                      <p className="text-lg font-bold text-purple-900">{bank.pan_number || "Not Available"}</p>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 border border-green-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Building2 size={18} className="text-green-600" />
-                        <p className="text-sm font-semibold text-green-800">Account Holder</p>
-                      </div>
-                      <p className="text-lg font-bold text-green-900">{bank.account_holder_name || "Not Available"}</p>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 border border-blue-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Landmark size={18} className="text-blue-600" />
-                        <p className="text-sm font-semibold text-blue-800">Bank Name</p>
-                      </div>
-                      <p className="text-lg font-bold text-blue-900">{bank.bank_name || "Not Available"}</p>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CreditCard size={18} className="text-orange-600" />
-                        <p className="text-sm font-semibold text-orange-800">Account Number</p>
-                      </div>
-                      <p className="text-lg font-bold text-orange-900">{bank.account_number || "Not Available"}</p>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4 border border-indigo-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText size={18} className="text-indigo-600" />
-                        <p className="text-sm font-semibold text-indigo-800">IFSC Code</p>
-                      </div>
-                      <p className="text-lg font-bold text-indigo-900">{bank.ifsc_code || "Not Available"}</p>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-xl p-4 border border-teal-200">
-                      <div className="flex items-center gap-2 mb-2">
-                        <MapPin size={18} className="text-teal-600" />
-                        <p className="text-sm font-semibold text-teal-800">Branch Name</p>
-                      </div>
-                      <p className="text-lg font-bold text-teal-900">{bank.branch_name || "Not Available"}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-4 border-t border-gray-200">
-                    <button
-                      onClick={() => setBankDetailsVendor(null)}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
-          </div>
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Item label="PAN number" value={bank.pan_number} icon={<FileSignature size={16} />} isCopy />
+                <Item label="Account holder" value={bank.account_holder_name} icon={<Building2 size={16} />} />
+                <Item label="Bank name" value={bank.bank_name} icon={<Landmark size={16} />} />
+                <Item label="Account number" value={bank.account_number} icon={<CreditCard size={16} />} isCopy />
+                <Item label="IFSC code" value={bank.ifsc_code} icon={<FileText size={16} />} isCopy />
+                <Item label="Branch name" value={bank.branch_name} icon={<MapPin size={16} />} />
+              </div>
+            );
+          })()}
         </div>
-      )}
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t flex justify-end">
+          <button
+            onClick={() => setBankDetailsVendor(null)}
+            className="px-5 py-2 rounded-lg bg-gray-900 text-white hover:bg-black transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
 
       {/* View Modal */}
       {viewVendor && (
@@ -390,7 +390,7 @@ const handleEdit = (vendor) => {
                       </div>
                       <div>
                         <p className="text-gray-500">Balance</p>
-                        <p className={`${Number(row.balance ?? 0) < Number(row.min_balance ?? 5000) ? "text-red-600 font-semibold" : "text-gray-800"}`}>
+                        <p className={`${Number(row.balance ?? 0) < Number(row.min_balance ?? 5000) ? " text-gray-800 font-semibold" : "text-red-600 font-semibold"}`}>
                           {Number(row.balance ?? 0).toFixed(2)}
                         </p>
                       </div>

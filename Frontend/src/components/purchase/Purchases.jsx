@@ -19,9 +19,9 @@ export default function Purchases() {
             const code = (localStorage.getItem("company_code") || "").toLowerCase();
             const { bg, text } = pickCompanyColor(code);
             return (
-              <div className={`inline-flex items-center gap-3 px-3 py-2 rounded-lg ${bg} ${text}`}>
-                <div className="text-sm font-semibold">{(code || "(none)").toUpperCase()}</div>
-                <div className="text-xs bg-white/20 px-2 py-0.5 rounded-full">Company</div>
+              <div className={`inline-flex fixed right-2  opacity-50 items-center gap-3 px-3 py-2 rounded-lg ${bg} ${text}`}>
+                <div className="text-lg font-semibold">{(code || "(none)").toUpperCase()}</div>
+                <div className="text-lg bg-white/20 px-2 py-0.5 rounded-full">Company</div>
               </div>
             );
           })()}

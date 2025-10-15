@@ -7,6 +7,8 @@ const PurchaseAPI = {
   create: (data) => api.post("/purchase", data),
   update: (id, data) => api.put(`/purchase/${id}`, data),
   delete: (id) => api.delete(`/purchase/${id}`),
+ // NEW
+  getPOForPurchase: (poId) => api.get(`/purchase-orders/${poId}/for-purchase`),
 };
 
 export default PurchaseAPI;

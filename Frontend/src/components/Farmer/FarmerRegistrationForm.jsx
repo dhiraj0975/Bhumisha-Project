@@ -84,7 +84,7 @@ export default function FarmerRegister({ selectedFarmer, onClose }) {
   return (
    <form onSubmit={handleSubmit} className="bg-white shadow-lg rounded-xl p-6 mb-6">
   <h2 className="text-xl font-bold mb-4">
-    {selectedFarmer ? "Update Farmer" : "Register Farmer"}
+    {selectedFarmer ? "Update Farmer" : "Farmer Registration "}
   </h2>
 
   {/* 4 inputs per row on md+ screens, responsive to 1 column on small screens */}

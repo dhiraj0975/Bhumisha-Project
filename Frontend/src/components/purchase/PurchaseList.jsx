@@ -74,7 +74,7 @@ export default function PurchaseList({ reload }) {
         <button
           type="button"
           onClick={() => setViewPurchaseId(params.row.id)}
-          className="text-blue-600 underline text-left w-full truncate"
+          className="text-blue-600 cursor-pointer underline text-left w-full truncate"
           title={params.value}
         >
           {params.value || "-"}

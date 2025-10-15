@@ -203,7 +203,7 @@ export default function CompaniesPage() {
               </thead>
               <tbody>
                 {filtered.map((r, idx) => (
-                  <tr key={r.id} className="hover:bg-gray-50">
+                  <tr key={r.id} className="hover:bg-gray-50 text-center">
                     <td className="p-2 border">{idx+1}</td>
                     <td className="p-2 border font-mono">{r.code}</td>
                     <td className="p-2 border">{r.name}</td>
@@ -214,7 +214,7 @@ export default function CompaniesPage() {
                     <td className="p-2 border">
                       <div className="flex gap-2">
                         <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={()=> onEdit(r)}>Edit</button>
-                        <button className="px-3 py-1 bg-red-600 text-white rounded" onClick={()=> onDelete(r.id)}>Delete</button>
+                        {/* <button className="px-3 py-1 bg-red-600 text-white rounded" onClick={()=> onDelete(r.id)}>Delete</button> */}
                         <button className={`px-3 py-1 rounded ${selected === r.code?.toLowerCase() ? 'bg-green-600 text-white':'border'}`} onClick={()=> onSelect(r.code)}>{selected === r.code?.toLowerCase() ? 'Selected' : 'Select'}</button>
                       </div>
                     </td>

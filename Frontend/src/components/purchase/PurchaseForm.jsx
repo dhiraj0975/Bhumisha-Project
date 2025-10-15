@@ -7,6 +7,7 @@ import ProductAPI from "../../axios/productAPI";
 import { useDispatch } from "react-redux";
 import { fetchProducts } from "../../features/products/productsSlice";
 import { fetchPurchases } from "../../features/purchase/purchaseSlice";
+import { useLocation } from "react-router-dom";
 import Swal from "sweetalert2";
 
 const fx = (n) => (isNaN(n) ? "0.000" : Number(n).toFixed(3));
@@ -35,6 +36,10 @@ const PurchaseForm = ({ onSaved }) => {
   const isEditMode = Boolean(poId);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const location = useLocation();
+  const sp = new URLSearchParams(location.search);
+  const poIdFromQuery = sp.get("poId");
+  const isCreateModeFromPO = Boolean(poIdFromQuery && !isEditMode);
 
   const [loading, setLoading] = useState(false);
 
@@ -59,7 +64,7 @@ const PurchaseForm = ({ onSaved }) => {
     party_balance: 0,
     party_min_balance: 0,
 
-    // Payment summary fields (Sales-style)
+    // Payment summary fields
     old_amount: 0,
     paid_amount: 0,
     payment_method: "Cash",
@@ -117,6 +122,71 @@ const PurchaseForm = ({ onSaved }) => {
     fetchMaster();
   }, []);
 
+  // NEW: Prefill from PO in create mode
+  useEffect(() => {
+    const prefillFromPO = async () => {
+      if (!isCreateModeFromPO) return;
+      try {
+        setLoading(true);
+        // Requires backend route GET /purchase-orders/:id/for-purchase
+        const res = await PurchaseAPI.getPOForPurchase(poIdFromQuery);
+        const data = res?.data || {};
+        const h = data.header || {};
+        const its = Array.isArray(data.items) ? data.items : [];
+
+        setHeader((prev) => ({
+          ...prev,
+          party_type: h.party_type || "vendor",
+          vendor_id: h.vendor_id || "",
+          farmer_id: h.farmer_id || "",
+          address: h.address || "",
+          mobile_no: h.mobile_no || "",
+          gst_no: h.gst_no || "",
+          terms_condition: h.terms_condition || "",
+            party_balance: Number(h.party_balance || 0),       // NEW
+  party_min_balance: Number(h.party_min_balance || 0), // NEW
+  old_amount: Number(h.party_balance || 0),          // Optional seed
+        }));
+
+setRows(
+  its.map((it) => ({
+    po_item_id: it.po_item_id || null,
+    product_id: String(it.product_id || ""),
+    item_name: it.item_name || "",
+    hsn_code: it.hsn_code || "",
+    available: 0, // fill below after products load
+    size: Number(it.pending_qty ?? it.qty ?? 1),      // NEW
+    rate: Number(it.rate || 0),
+    d1_percent: Number(it.discount_rate || 0),
+    gst_percent: Number(it.gst_percent || 0),
+  }))
+);
+
+      } catch (e) {
+        console.error("PO prefill error", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    prefillFromPO();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCreateModeFromPO, poIdFromQuery, products]);
+
+  useEffect(() => {
+  if (!products?.length || !rows?.length) return;
+  setRows((prev) =>
+    prev.map((r) => {
+      if (!r?.product_id) return r;
+      const p = products.find((x) => String(x.id) === String(r.product_id));
+      const avail = Number(p?.available || 0);
+      if (Number(r.available || 0) === avail) return r;
+      return { ...r, available: avail };
+    })
+  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [products, rows]);
+
+
   // Party type change
   const onPartyTypeChange = (e) => {
     const val = e.target.value;
@@ -130,7 +200,7 @@ const PurchaseForm = ({ onSaved }) => {
       gst_no: "",
       party_balance: 0,
       party_min_balance: 0,
-      old_amount: 0, // reset old when switching party type
+      old_amount: 0,
       paid_amount: 0,
     }));
   };
@@ -149,7 +219,7 @@ const PurchaseForm = ({ onSaved }) => {
         gst_no: v?.gst_no || "",
         party_balance: Number(v?.balance ?? 0),
         party_min_balance: Number(v?.min_balance ?? 0),
-        old_amount: Number(v?.balance ?? 0), // seed old with party balance
+        old_amount: Number(v?.balance ?? 0),
       }));
     } else {
       const f = farmers.find((x) => String(x.id) === String(id));
@@ -240,7 +310,7 @@ const PurchaseForm = ({ onSaved }) => {
         next[i].hsn_code = p?.hsn_code || "";
         next[i].available = Number(p?.available || 0);
         next[i].rate = Number(p?.purchaseRate || 0);
-        next[i].gst_percent = Number(p?.gst_percent || 0); // auto-fill GST
+        next[i].gst_percent = Number(p?.gst_percent || 0);
         next[i].size = 1;
       }
       if (field === "size") {
@@ -302,8 +372,10 @@ const PurchaseForm = ({ onSaved }) => {
         bill_time: bill_time_iso,
         vendor_id: header.party_type === "vendor" ? header.vendor_id : null,
         farmer_id: header.party_type === "farmer" ? header.farmer_id : null,
+        linked_po_id: isCreateModeFromPO ? Number(poIdFromQuery) : null, // NEW
         items: rows.map((r) => ({
           product_id: r.product_id,
+          po_item_id: r.po_item_id || null, // NEW
           rate: Number(r.rate || 0),
           size: Number(r.size || 0),
           unit: "PCS",
@@ -338,25 +410,31 @@ const PurchaseForm = ({ onSaved }) => {
           confirmButtonColor: "#2563eb",
         });
         navigate("/purchases");
-      } else {
-        await PurchaseAPI.create(payload);
-        const updates = payload.items.map((it) => {
-          const p = products.find((x) => Number(x.id) === Number(it.product_id));
-          return ProductAPI.update(it.product_id, {
-            product_name: p?.product_name,
-            purchase_rate: it.rate,
-          });
-        });
-        await Promise.allSettled(updates);
-        await dispatch(fetchProducts());
-        await Swal.fire({
-          icon: "success",
-          title: "Purchase saved",
-          text: "Purchase saved successfully",
-          confirmButtonColor: "#2563eb",
-        });
-        if (typeof onSaved === "function") onSaved();
-      }
+} else {
+  await PurchaseAPI.create(payload);
+  const updates = payload.items.map((it) => {
+    const p = products.find((x) => Number(x.id) === Number(it.product_id));
+    return ProductAPI.update(it.product_id, {
+      product_name: p?.product_name,
+      purchase_rate: it.rate,
+    });
+  });
+  await Promise.allSettled(updates);
+  await dispatch(fetchProducts());
+  try { await dispatch(fetchPurchases()); } catch {}
+
+  await Swal.fire({
+    icon: "success",
+    title: "Purchase saved",
+    text: "Purchase saved successfully",
+    confirmButtonColor: "#2563eb",
+  });
+
+  navigate("/purchases"); // ← yahin likhna hai
+
+  if (typeof onSaved === "function") onSaved();
+}
+
     } catch (err) {
       console.error(err);
       Swal.fire({
@@ -422,18 +500,27 @@ const PurchaseForm = ({ onSaved }) => {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-gray-50 rounded p-2 text-xs">
-                  <div className="text-gray-600">Party Balance</div>
-                  <div className="font-semibold">{fx(header.party_balance)}</div>
-                </div>
-                <div className="bg-gray-50 rounded p-2 text-xs">
-                  <div className="text-gray-600">Min Balance</div>
-                  <div className="font-semibold">{fx(header.party_min_balance)}</div>
-                </div>
-              </div>
-            </div>
+<div className="grid grid-cols-2 gap-2">
+  <div className="bg-gray-50 rounded p-2 text-xs">
+    <div className="text-gray-600">Party Balance</div>
+    <div className="font-semibold">{fx(header.party_balance)}</div>
+  </div>
 
+  <div
+    className={`rounded p-2 text-xs ${
+      (header.old_amount ?? 0) + (totals?.final ?? 0) - (header.paid_amount ?? 0) > 0
+        ? "bg-amber-50"
+        : "bg-gray-50"
+    }`}
+  >
+    <div className="text-gray-600">Remaining</div>
+    <div className="font-semibold">
+      {fx((header.old_amount ?? 0) + (totals?.final ?? 0) - (header.paid_amount ?? 0))}
+    </div>
+  </div>
+</div>
+
+            </div>
 
           </div>
         </div>
@@ -491,8 +578,8 @@ const PurchaseForm = ({ onSaved }) => {
                 <input className="border rounded p-1 bg-gray-100" name="party_balance" value={fx(header.party_balance)} readOnly />
               </div>
 
-                            <div className="">
-                <div className="text-xs">
+              <div className="">
+                {/* <div className="text-xs">
                   <label className="text-gray-600 block">Old</label>
                   <input
                     type="number"
@@ -502,13 +589,13 @@ const PurchaseForm = ({ onSaved }) => {
                     value={header.old_amount ?? 0}
                     onChange={(e) => setHeader((p) => ({ ...p, old_amount: Number(e.target.value || 0) }))}
                   />
-                </div>
+                </div> */}
                 <div className="text-xs">
                   <label className="text-gray-600 block">Paid</label>
                   <input
                     type="number"
                     inputMode="decimal"
-                    className="border rounded p-1 w-full"
+                    className="border rounded p-2 w-full"
                     value={header.paid_amount ?? 0}
                     onChange={(e) => setHeader((p) => ({ ...p, paid_amount: Number(e.target.value || 0) }))}
                   />
@@ -517,7 +604,7 @@ const PurchaseForm = ({ onSaved }) => {
                   <label className="text-gray-600 block">Remaining</label>
                   <input
                     readOnly
-                    className="border rounded p-1 w-full bg-gray-100"
+                    className="border rounded p-2 w-full bg-gray-100"
                     value={fx((header.old_amount ?? 0) + (totals?.final ?? 0) - (header.paid_amount ?? 0))}
                   />
                 </div>
@@ -527,7 +614,7 @@ const PurchaseForm = ({ onSaved }) => {
                 <div className="text-xs">
                   <label className="text-gray-600 block">Payment Method</label>
                   <select
-                    className="border rounded p-1 w-full"
+                    className="border rounded p-2 w-full"
                     value={header.payment_method}
                     onChange={(e) => setHeader((p) => ({ ...p, payment_method: e.target.value }))}
                   >
@@ -541,7 +628,7 @@ const PurchaseForm = ({ onSaved }) => {
                 <div className="text-xs">
                   <label className="text-gray-600 block">Payment Note</label>
                   <input
-                    className="border rounded p-1 w-full"
+                    className="border rounded p-2 w-full"
                     placeholder="Ref/UPI/Txn/Cheque No"
                     value={header.payment_note}
                     onChange={(e) => setHeader((p) => ({ ...p, payment_note: e.target.value }))}
@@ -709,7 +796,6 @@ const PurchaseForm = ({ onSaved }) => {
               <td className="border px-2 py-1">—</td>
               <td className="border px-2 py-1">{fx(totals.disc)}</td>
               <td className="border px-2 py-1">—</td>
-              <td className="border px-2 py-1">{fx(totals.gst)}</td>
               <td className="border px-2 py-1">{fx(totals.final)}</td>
               <td className="border px-2 py-1"></td>
             </tr>

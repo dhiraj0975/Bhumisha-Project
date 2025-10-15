@@ -32,6 +32,7 @@ import SalesOrders from "./components/salesOrders/SalesOrders.jsx";
 import SalesInvoice from "./components/salesOrders/SalesOrderInvoice.jsx";
 
 import CompaniesPage from "./components/Company/CompaniesPage.jsx";
+import PurchaseForm from "./components/purchase/PurchaseForm.jsx";
 
 // Protected shell: Sidebar + Navbar + keyed Outlet
 function AppShell() {
@@ -61,7 +62,7 @@ function AppShell() {
           ${collapsed ? "md:ml-20" : "md:ml-64"} ml-0`}
       >
         <Navbar toggleSidebar={toggleSidebar} />
-        <main className="flex-1 p-6 overflow-y-auto">
+        <main className="flex-1 p-2 overflow-y-auto">
           <Outlet key={outletKey} />
         </main>
       </div>
@@ -115,6 +116,7 @@ export default function App() {
           <Route path="/purchases" element={<Purchases />} />
           <Route path="/purchases/edit/:poId" element={<PurchaseEdit />} />
           <Route path="/purchases/view/:poId" element={<PurchaseView />} />
+          <Route path="/purchases/create" element={<PurchaseForm />} />
 
           {/* Sales */}
           <Route path="/sales" element={<SalesPage />} />

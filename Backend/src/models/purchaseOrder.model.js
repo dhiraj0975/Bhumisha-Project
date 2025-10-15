@@ -58,35 +58,35 @@ const release = (conn) => {
 
 const PurchaseOrder = {
   // CREATE header
-  create: async (data) => {
-    const sql = `
-      INSERT INTO purchase_orders
-      (po_no, vendor_id, date, bill_time, address, mobile_no, gst_no, place_of_supply, terms_condition, total_amount, gst_amount, final_amount, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+// Replace existing create with:
+create: async (data) => {
+  const sql = `
+    INSERT INTO purchase_orders
+    (po_no, party_type, vendor_id, farmer_id, date, bill_time, address, mobile_no, gst_no, place_of_supply, terms_condition, total_amount, gst_amount, final_amount, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  // Do NOT coerce null to number; allow nulls
+  const values = [
+    data.po_no || "",
+    data.party_type || "vendor",
+    data.vendor_id ?? null,
+    data.farmer_id ?? null,
+    data.date || null,
+    data.bill_time || null,
+    data.address || "",
+    data.mobile_no || "",
+    data.gst_no || "",
+    data.place_of_supply || "",
+    data.terms_condition || "",
+    toNum(data.total_amount),
+    toNum(data.gst_amount),
+    toNum(data.final_amount),
+    data.status || "Issued",
+  ];
+  const [result] = await q(sql, values);
+  return result;
+},
 
-    const vendorId = toNum(data.vendor_id, NaN);
-    if (!Number.isInteger(vendorId)) throw new Error("vendor_id must be a valid integer");
-
-    const values = [
-      data.po_no || "",
-      vendorId,
-      data.date || null,
-      data.bill_time || null,
-      data.address || "",
-      data.mobile_no || "",
-      data.gst_no || "",
-      data.place_of_supply || "",
-      data.terms_condition || "",
-      toNum(data.total_amount),
-      toNum(data.gst_amount),
-      toNum(data.final_amount),
-      data.status || "Draft",
-    ];
-
-    const [result] = await q(sql, values);
-    return result; // { insertId, affectedRows, ... }
-  },
 
   // READ: list rows joined with vendor+items+products (flat)
   getAllRaw: async () => {
@@ -137,37 +137,37 @@ const PurchaseOrder = {
   },
 
   // UPDATE header only
-  updateHeader: async (id, data) => {
-    const sql = `
-      UPDATE purchase_orders SET
-        po_no = ?, vendor_id = ?, date = ?, bill_time = ?,
-        address = ?, mobile_no = ?, gst_no = ?, place_of_supply = ?, 
-        terms_condition = ?, total_amount = ?, gst_amount = ?, final_amount = ?, status = ?
-      WHERE id = ?
-    `;
+// Replace existing updateHeader with:
+updateHeader: async (id, data) => {
+  const sql = `
+    UPDATE purchase_orders SET
+      po_no = ?, party_type = ?, vendor_id = ?, farmer_id = ?, date = ?, bill_time = ?,
+      address = ?, mobile_no = ?, gst_no = ?, place_of_supply = ?, 
+      terms_condition = ?, total_amount = ?, gst_amount = ?, final_amount = ?, status = ?
+    WHERE id = ?
+  `;
+  const values = [
+    data.po_no || "",
+    data.party_type || "vendor",
+    data.vendor_id ?? null,
+    data.farmer_id ?? null,
+    data.date || null,
+    data.bill_time || null,
+    data.address || "",
+    data.mobile_no || "",
+    data.gst_no || "",
+    data.place_of_supply || "",
+    data.terms_condition || "",
+    toNum(data.total_amount),
+    toNum(data.gst_amount),
+    toNum(data.final_amount),
+    data.status || "Issued",
+    id,
+  ];
+  const [result] = await q(sql, values);
+  return result;
+},
 
-    const vendorId = toNum(data.vendor_id, NaN);
-    if (!Number.isInteger(vendorId)) throw new Error("vendor_id must be a valid integer");
-
-    const values = [
-      data.po_no || "",
-      vendorId,
-      data.date || null,
-      data.bill_time || null,
-      data.address || "",
-      data.mobile_no || "",
-      data.gst_no || "",
-      data.place_of_supply || "",
-      data.terms_condition || "",
-      toNum(data.total_amount),
-      toNum(data.gst_amount),
-      toNum(data.final_amount),
-      data.status || "Issued",
-      id,
-    ];
-    const [result] = await q(sql, values);
-    return result;
-  },
 
   // DELETE header
   delete: async (id) => {
